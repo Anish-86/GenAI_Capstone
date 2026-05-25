@@ -10,6 +10,10 @@ import ProductDetailPage from './pages/ProductDetailPage'
 import InventoryPage from './pages/InventoryPage'
 import UsersPage from './pages/UsersPage'
 import TenantsPage from './pages/TenantsPage'
+import AlertsPage from './pages/AlertsPage'
+import TenantDetailsPage from './pages/TenantDetailsPage'
+
+import StoresPage from './pages/StoresPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuthStore()
@@ -29,8 +33,11 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="alerts" element={<AlertsPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="stores" element={<StoresPage />} />
           <Route path="tenants" element={<TenantsPage />} />
+          <Route path="tenants/:id" element={<TenantDetailsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

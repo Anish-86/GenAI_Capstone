@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.routes import auth, tenants, products, inventory, users
+from app.api.routes import alerts, auth, complaints, tenants, products, inventory, notifications, stores, users
 from app.database.session import engine
 from app.models import base
 from app.core.config import settings
@@ -19,6 +19,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    redirect_slashes=False,
 )
 
 app.add_middleware(
@@ -50,6 +51,10 @@ app.include_router(tenants.router, prefix="/tenants", tags=["Tenants"])
 app.include_router(products.router, prefix="/products", tags=["Products"])
 app.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
+app.include_router(stores.router, prefix="/stores", tags=["Stores"])
+app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
+app.include_router(complaints.router, prefix="/complaints", tags=["Complaints"])
+app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 
 
 @app.get("/health", tags=["Health"])

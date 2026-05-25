@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum, Boolean, Text
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum, Boolean, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database.session import Base
@@ -37,6 +37,7 @@ class Tenant(Base):
 
     users = relationship("User", back_populates="tenant")
     products = relationship("Product", back_populates="tenant")
+    stores = relationship("Store", back_populates="tenant")
 
 
 class User(Base):
@@ -48,12 +49,32 @@ class User(Base):
     password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=True)
+    phone = Column(String(50))
     is_active = Column(Boolean, default=True)
+    last_login = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     tenant = relationship("Tenant", back_populates="users")
+    store = relationship("Store", back_populates="managers")
     transactions = relationship("InventoryTransaction", back_populates="updated_by_user")
+
+
+class Store(Base):
+    __tablename__ = "stores"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    location = Column(String(255), nullable=False)
+    status = Column(String(50), default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    tenant = relationship("Tenant", back_populates="stores")
+    managers = relationship("User", back_populates="store")
+    inventory_items = relationship("StoreInventory", back_populates="store")
 
 
 class Product(Base):
@@ -75,6 +96,25 @@ class Product(Base):
 
     tenant = relationship("Tenant", back_populates="products")
     transactions = relationship("InventoryTransaction", back_populates="product")
+    store_inventory = relationship("StoreInventory", back_populates="product")
+
+
+class StoreInventory(Base):
+    __tablename__ = "store_inventory"
+    __table_args__ = (
+        UniqueConstraint("store_id", "product_id", name="uq_store_inventory_store_product"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, default=0)
+    low_stock_threshold = Column(Integer, default=10)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    store = relationship("Store", back_populates="inventory_items")
+    product = relationship("Product", back_populates="store_inventory")
 
 
 class InventoryTransaction(Base):
@@ -83,6 +123,7 @@ class InventoryTransaction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=True)
     transaction_type = Column(Enum(TransactionType), nullable=False)
     quantity = Column(Integer, nullable=False)
     updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -91,3 +132,61 @@ class InventoryTransaction(Base):
 
     product = relationship("Product", back_populates="transactions")
     updated_by_user = relationship("User", back_populates="transactions")
+    store = relationship("Store")
+
+
+class LowStockAlert(Base):
+    __tablename__ = "low_stock_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=True)
+    raised_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    remaining_quantity = Column(Integer)
+    message = Column(Text)
+    status = Column(String(50), default="open")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime)
+
+    product = relationship("Product")
+    store = relationship("Store")
+    raised_by_user = relationship("User")
+
+
+class Complaint(Base):
+    __tablename__ = "complaints"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=True)
+    raised_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    complaint_type = Column(String(100), nullable=False)
+    priority = Column(String(50), default="medium")
+    description = Column(Text, nullable=False)
+    status = Column(String(50), default="open")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime)
+
+    store = relationship("Store")
+    product = relationship("Product")
+    raised_by_user = relationship("User")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    entity_type = Column(String(100))
+    entity_id = Column(UUID(as_uuid=True), nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    recipient = relationship("User", foreign_keys=[recipient_id])
+    actor = relationship("User", foreign_keys=[actor_id])

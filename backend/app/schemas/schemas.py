@@ -35,6 +35,10 @@ class RefreshRequest(BaseModel):
 class TenantCreate(BaseModel):
     company_name: str
     contact_email: EmailStr
+    initial_user_name: Optional[str] = None
+    initial_user_email: Optional[EmailStr] = None
+    initial_user_password: Optional[str] = None
+    initial_user_role: Optional[UserRole] = UserRole.RETAILER_ADMIN
 
 
 class TenantUpdate(BaseModel):
@@ -62,7 +66,10 @@ class UserResponse(BaseModel):
     email: str
     role: UserRole
     tenant_id: Optional[UUID]
+    store_id: Optional[UUID]
+    phone: Optional[str]
     is_active: bool
+    last_login: Optional[datetime]
     created_at: datetime
 
     class Config:
@@ -71,7 +78,10 @@ class UserResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     role: Optional[UserRole] = None
+    store_id: Optional[UUID] = None
     is_active: Optional[bool] = None
 
 
@@ -81,6 +91,9 @@ class UserCreate(BaseModel):
     password: str
     role: UserRole = UserRole.INVENTORY_MANAGER
     tenant_id: Optional[UUID] = None
+    store_id: Optional[UUID] = None
+    store_location: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class PasswordReset(BaseModel):
@@ -140,10 +153,63 @@ class PaginatedProducts(BaseModel):
     total_pages: int
 
 
+# ─── Stores ─────────────────────────────────────────────────────────────────
+
+class StoreCreate(BaseModel):
+    name: str
+    location: str
+    tenant_id: Optional[UUID] = None
+
+
+class StoreUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None
+
+
+class StoreResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    name: str
+    location: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class StoreInventoryAssign(BaseModel):
+    product_id: UUID
+    store_id: UUID
+    quantity: int  # quantity to ADD (additive, not replacement)
+    low_stock_threshold: Optional[int] = None  # only used on first assignment; ignored if record exists
+
+
+class AddWarehouseStock(BaseModel):
+    quantity: int  # quantity to ADD to warehouse (product.quantity)
+
+
+class StoreInventoryResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    store_id: UUID
+    product_id: UUID
+    quantity: int
+    low_stock_threshold: int
+    updated_at: datetime
+    product: Optional[ProductResponse] = None
+    store: Optional[StoreResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── Inventory ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):
     product_id: UUID
+    store_id: Optional[UUID] = None
     transaction_type: TransactionType
     quantity: int
     notes: Optional[str] = None
@@ -153,12 +219,93 @@ class TransactionResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     product_id: UUID
+    store_id: Optional[UUID]
     transaction_type: TransactionType
     quantity: int
     notes: Optional[str]
     timestamp: datetime
     product: Optional[ProductResponse] = None
     updated_by_user: Optional[UserResponse] = None
+    store: Optional[StoreResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Alerts and Notifications ────────────────────────────────────────────────
+
+class LowStockAlertCreate(BaseModel):
+    product_id: UUID
+    store_id: Optional[UUID] = None
+    message: Optional[str] = None
+
+
+class LowStockAlertUpdate(BaseModel):
+    status: str
+    resolve_message: Optional[str] = None
+
+
+class LowStockAlertResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    product_id: UUID
+    store_id: Optional[UUID]
+    raised_by: UUID
+    remaining_quantity: Optional[int]
+    message: Optional[str]
+    status: str
+    created_at: datetime
+    resolved_at: Optional[datetime]
+    product: Optional[ProductResponse] = None
+    store: Optional[StoreResponse] = None
+    raised_by_user: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationResponse(BaseModel):
+    id: UUID
+    tenant_id: Optional[UUID]
+    recipient_id: Optional[UUID]
+    actor_id: Optional[UUID]
+    title: str
+    message: str
+    entity_type: Optional[str]
+    entity_id: Optional[UUID]
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ComplaintCreate(BaseModel):
+    product_id: Optional[UUID] = None
+    complaint_type: str
+    description: str
+    priority: str = "medium"
+
+
+class ComplaintUpdate(BaseModel):
+    status: str
+
+
+class ComplaintResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    store_id: UUID
+    product_id: Optional[UUID]
+    raised_by: UUID
+    complaint_type: str
+    priority: str
+    description: str
+    status: str
+    created_at: datetime
+    resolved_at: Optional[datetime]
+    product: Optional[ProductResponse] = None
+    store: Optional[StoreResponse] = None
+    raised_by_user: Optional[UserResponse] = None
 
     class Config:
         from_attributes = True
@@ -179,3 +326,8 @@ class AdminStats(BaseModel):
     total_products: int
     active_users: int
     total_transactions: int
+    total_tenant_admins: int = 0
+    total_inventory_managers: int = 0
+    total_low_stock_alerts: int = 0
+    active_tenants: int = 0
+    inactive_tenants: int = 0
