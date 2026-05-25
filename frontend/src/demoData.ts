@@ -212,4 +212,9 @@ export const demoAdminStats: AdminStats = {
   total_products: demoProducts.length,
   active_users: demoUsers.filter((user) => user.is_active).length,
   total_transactions: demoTransactions.length,
+  total_tenant_admins: demoUsers.filter((user) => user.role === 'retailer_admin').length,
+  total_inventory_managers: demoUsers.filter((user) => user.role === 'inventory_manager').length,
+  total_low_stock_alerts: demoProducts.filter((product) => product.quantity <= 10).length,
+  active_tenants: demoTenants.filter((tenant) => tenant.status === 'active').length,
+  inactive_tenants: demoTenants.filter((tenant) => tenant.status !== 'active').length,
 }

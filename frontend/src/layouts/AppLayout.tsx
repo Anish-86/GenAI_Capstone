@@ -1,17 +1,21 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
+import { notificationService } from '../services/api'
+import type { Notification } from '../types'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Users, Building2,
-  LogOut, Menu, X, ChevronRight, Bell, Search
+  LogOut, Menu, X, ChevronRight, Bell, Search, AlertTriangle, MapPin
 } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/products', icon: Package, label: 'Products' },
-  { to: '/inventory', icon: ArrowLeftRight, label: 'Inventory' },
-  { to: '/users', icon: Users, label: 'Users' },
-  { to: '/tenants', icon: Building2, label: 'Tenants', adminOnly: true },
+  { to: '/tenants', icon: Building2, label: 'Tenants', roles: ['super_admin'] },
+  { to: '/products', icon: Package, label: 'Products', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/inventory', icon: ArrowLeftRight, label: 'Inventory', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/stores', icon: MapPin, label: 'Stores', roles: ['retailer_admin'] },
+  { to: '/alerts', icon: AlertTriangle, label: 'Low Stock', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/users', icon: Users, label: 'Team', roles: ['retailer_admin'] },
 ]
 
 export default function AppLayout() {
@@ -19,13 +23,62 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const unread = notifications.filter(notification => !notification.is_read).length
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
-  const filteredNav = navItems.filter(item => !item.adminOnly || user?.role === 'super_admin')
+  const filteredNav = navItems.filter(item => !item.roles || item.roles.includes(user?.role || ''))
+
+  const loadNotifications = async () => {
+    try {
+      const { data } = await notificationService.list()
+      setNotifications(data)
+      return data
+    } catch {
+      setNotifications([])
+      return []
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications()
+    const timer = window.setInterval(loadNotifications, 30000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const openNotifications = async () => {
+    const opening = !notificationOpen
+    setNotificationOpen(opening)
+    if (opening) {
+      const latest = await loadNotifications()
+      // Mark all as read dynamically when panel opens
+      if (latest.some((n: Notification) => !n.is_read)) {
+        try {
+          await notificationService.markAllRead()
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+        } catch {}
+      }
+    }
+  }
+
+  const markRead = async (notification: Notification) => {
+    try {
+      await notificationService.markRead(notification.id)
+      loadNotifications()
+    } catch {}
+    // Navigate based on entity type
+    setNotificationOpen(false)
+    if (notification.entity_type === 'low_stock_alert') {
+      navigate('/alerts')
+    } else if (notification.entity_type === 'complaint') {
+      navigate('/alerts')
+    }
+  }
 
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'
 
@@ -124,10 +177,28 @@ export default function AppLayout() {
             />
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <button className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-950 transition-colors">
+            <button onClick={openNotifications} className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-950 transition-colors">
               <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-teal-600 rounded-full" />
+              {unread > 0 && <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-teal-600 rounded-full text-[10px] leading-4 text-white text-center">{unread}</span>}
             </button>
+            {notificationOpen && (
+              <div className="absolute right-6 top-14 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <div className="text-sm font-semibold text-slate-900">Notifications</div>
+                </div>
+                <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-sm text-slate-400 text-center">No notifications</div>
+                  ) : notifications.map(notification => (
+                    <button key={notification.id} onClick={() => markRead(notification)}
+                      className={`w-full text-left px-4 py-3 hover:bg-slate-50 ${notification.is_read ? '' : 'bg-teal-50/70'}`}>
+                      <div className="text-sm font-medium text-slate-900">{notification.title}</div>
+                      <div className="text-xs text-slate-500 mt-1">{notification.message}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </header>
 

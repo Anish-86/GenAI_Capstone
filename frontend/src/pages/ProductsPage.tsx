@@ -1,36 +1,59 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, ChevronLeft, ChevronRight, Package, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Search, Filter, ChevronLeft, ChevronRight, Package, Pencil, Trash2, X, AlertTriangle, PackagePlus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { productService } from '../services/api'
-import type { Product, PaginatedProducts } from '../types'
-import { demoPaginatedProducts } from '../demoData'
+import { alertService, inventoryService, productService, storeService } from '../services/api'
+import type { Product, PaginatedProducts, Store, StoreInventory } from '../types'
+import { useAuthStore } from '../store/authStore'
+import { useDebounce } from '../hooks/useDebounce'
 
 export default function ProductsPage() {
+  const { user } = useAuthStore()
   const [data, setData] = useState<PaginatedProducts | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 350)
   const [showModal, setShowModal] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
+  const [addStockProduct, setAddStockProduct] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [stores, setStores] = useState<Store[]>([])
+  const [storeInventory, setStoreInventory] = useState<StoreInventory[]>([])
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>()
+  const assignForm = useForm<any>({ defaultValues: { low_stock_threshold: 10 } })
+  const addStockForm = useForm<{ quantity: number }>()
+  const assignProductId = assignForm.watch('product_id')
+  const assignStoreId = assignForm.watch('store_id')
+  const existingStoreStock = storeInventory.find(item => item.product_id === assignProductId && item.store_id === assignStoreId)
 
   const load = async (pg = page, q = search) => {
     setLoading(true)
     try {
       const { data: res } = await productService.list({ page: pg, search: q || undefined, page_size: 15 })
-      setData(res.items?.length ? res : demoPaginatedProducts)
+      setData(res)
     } catch {
-      setData(demoPaginatedProducts)
+      toast.error('Failed to load products')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load(page, search) }, [page])
+  useEffect(() => { load(page, debouncedSearch) }, [page, debouncedSearch])
+  useEffect(() => {
+    if (user?.role === 'retailer_admin') {
+      storeService.list().then(({ data }) => setStores(data)).catch(() => setStores([]))
+      inventoryService.storeInventory().then(({ data }) => setStoreInventory(data)).catch(() => setStoreInventory([]))
+    }
+  }, [user?.role])
+
+  useEffect(() => {
+    if (existingStoreStock) {
+      assignForm.setValue('low_stock_threshold', existingStoreStock.low_stock_threshold)
+    }
+  }, [assignForm, existingStoreStock])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,12 +62,19 @@ export default function ProductsPage() {
   }
 
   const openCreate = () => { reset({}); setEditProduct(null); setShowModal(true) }
-  const openEdit = (p: Product) => { reset(p); setEditProduct(p); setShowModal(true) }
+  const openEdit = (p: Product) => {
+    reset(user?.role === 'inventory_manager' ? { quantity: p.quantity, warehouse_location: p.warehouse_location } : p)
+    setEditProduct(p)
+    setShowModal(true)
+  }
 
   const onSubmit = async (formData: any) => {
     try {
       if (editProduct) {
-        await productService.update(editProduct.id, formData)
+        const payload = user?.role === 'inventory_manager'
+          ? { quantity: parseInt(formData.quantity), warehouse_location: formData.warehouse_location }
+          : formData
+        await productService.update(editProduct.id, payload)
         toast.success('Product updated')
       } else {
         await productService.create(formData)
@@ -54,6 +84,55 @@ export default function ProductsPage() {
       load()
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Error saving product')
+    }
+  }
+
+  const raiseLowStockAlert = async (product: Product) => {
+    try {
+      await alertService.create({
+        product_id: product.id,
+        message: `${product.product_name} is low on stock at ${product.quantity} units.`,
+      })
+      toast.success('Low stock alert raised')
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to raise alert')
+    }
+  }
+
+  const assignStock = async (data: any) => {
+    try {
+      const existing = storeInventory.find(item => item.product_id === data.product_id && item.store_id === data.store_id)
+      const payload: Record<string, any> = {
+        product_id: data.product_id,
+        store_id: data.store_id,
+        quantity: parseInt(data.quantity),
+      }
+      if (!existing && data.low_stock_threshold) {
+        payload.low_stock_threshold = parseInt(data.low_stock_threshold)
+      }
+      await inventoryService.assignStoreInventory(payload)
+      toast.success('Stock assigned to store — warehouse qty updated')
+      assignForm.reset({ low_stock_threshold: 10 })
+      const [{ data: inventoryData }] = await Promise.all([
+        inventoryService.storeInventory(),
+        load(),
+      ])
+      setStoreInventory(inventoryData)
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to assign stock')
+    }
+  }
+
+  const handleAddStock = async (data: { quantity: number }) => {
+    if (!addStockProduct) return
+    try {
+      await inventoryService.addWarehouseStock(addStockProduct.id, Number(data.quantity))
+      toast.success(`Added ${data.quantity} units to warehouse — new total updated`)
+      setAddStockProduct(null)
+      addStockForm.reset()
+      load()
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to add stock')
     }
   }
 
@@ -85,11 +164,39 @@ export default function ProductsPage() {
           <h1 className="text-xl font-semibold text-slate-950">Products</h1>
           <p className="text-slate-500 text-sm mt-0.5">{data?.total ?? 0} products in inventory</p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium text-white transition-colors">
-          <Plus size={15} /> Add Product
-        </button>
+        {user?.role === 'retailer_admin' && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium text-white transition-colors">
+            <Plus size={15} /> Add Product
+          </button>
+        )}
       </div>
+
+      {/* Filters */}
+      {user?.role === 'retailer_admin' && (
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="text-sm font-semibold text-slate-900 mb-3">Assign Product Quantity to Store</div>
+          <form onSubmit={assignForm.handleSubmit(assignStock)} className="grid md:grid-cols-5 gap-3">
+            <select {...assignForm.register('product_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              <option value="">Product</option>
+              {data?.items.map(product => <option key={product.id} value={product.id}>{product.product_name}</option>)}
+            </select>
+            <select {...assignForm.register('store_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              <option value="">Store</option>
+              {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
+            </select>
+            <input {...assignForm.register('quantity', { required: true })} type="number" placeholder="Quantity" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            <input
+              {...assignForm.register('low_stock_threshold')}
+              type="number"
+              placeholder={existingStoreStock ? 'Existing threshold' : 'Threshold'}
+              disabled={Boolean(existingStoreStock)}
+              className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm disabled:text-slate-500 disabled:cursor-not-allowed"
+            />
+            <button className="rounded-lg bg-teal-600 text-white text-sm font-medium">Assign</button>
+          </form>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3">
@@ -154,14 +261,32 @@ export default function ProductsPage() {
                 <td className="px-4 py-3.5 text-sm text-slate-500">{product.warehouse_location || '—'}</td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => openEdit(product)}
-                      className="p-1.5 hover:bg-slate-100 rounded-md text-slate-600 hover:text-slate-950 transition-colors">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDelete(product.id)} disabled={deleting === product.id}
-                      className="p-1.5 hover:bg-red-500/10 rounded-md text-slate-600 hover:text-red-400 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
+                    {user?.role === 'retailer_admin' && (
+                      <button onClick={() => { addStockForm.reset(); setAddStockProduct(product) }}
+                        className="p-1.5 hover:bg-teal-500/10 rounded-md text-slate-600 hover:text-teal-600 transition-colors"
+                        title="Add stock to warehouse">
+                        <PackagePlus size={13} />
+                      </button>
+                    )}
+                    {user?.role !== 'super_admin' && (
+                      <button onClick={() => openEdit(product)}
+                        className="p-1.5 hover:bg-slate-100 rounded-md text-slate-600 hover:text-slate-950 transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {user?.role === 'inventory_manager' && product.quantity <= 10 && (
+                      <button onClick={() => raiseLowStockAlert(product)}
+                        className="p-1.5 hover:bg-amber-500/10 rounded-md text-slate-600 hover:text-amber-500 transition-colors"
+                        title="Raise low stock alert">
+                        <AlertTriangle size={13} />
+                      </button>
+                    )}
+                    {user?.role === 'retailer_admin' && (
+                      <button onClick={() => handleDelete(product.id)} disabled={deleting === product.id}
+                        className="p-1.5 hover:bg-red-500/10 rounded-md text-slate-600 hover:text-red-400 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -199,7 +324,10 @@ export default function ProductsPage() {
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                {[
+                {(user?.role === 'inventory_manager' ? [
+                  { name: 'quantity', label: 'Quantity', type: 'number' },
+                  { name: 'warehouse_location', label: 'Warehouse Location' },
+                ] : [
                   { name: 'product_name', label: 'Product Name', required: true },
                   { name: 'sku', label: 'SKU', required: true },
                   { name: 'category', label: 'Category' },
@@ -208,7 +336,7 @@ export default function ProductsPage() {
                   { name: 'quantity', label: 'Quantity', type: 'number' },
                   { name: 'supplier', label: 'Supplier' },
                   { name: 'warehouse_location', label: 'Warehouse Location' },
-                ].map(field => (
+                ]).map(field => (
                   <div key={field.name}>
                     <label className="block text-xs font-medium text-slate-600 mb-1.5">{field.label}</label>
                     <input
@@ -221,11 +349,13 @@ export default function ProductsPage() {
                   </div>
                 ))}
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Description</label>
-                <textarea {...register('description')} rows={3}
-                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors resize-none" />
-              </div>
+              {user?.role !== 'inventory_manager' && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Description</label>
+                  <textarea {...register('description')} rows={3}
+                    className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors resize-none" />
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}
                   className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:text-slate-950 hover:border-slate-300 transition-all">
@@ -234,6 +364,44 @@ export default function ProductsPage() {
                 <button type="submit" disabled={isSubmitting}
                   className="flex-1 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                   {isSubmitting ? 'Saving...' : (editProduct ? 'Update' : 'Create Product')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Add Stock Modal */}
+      {addStockProduct && (
+        <div className="fixed inset-0 bg-slate-900/35 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">Add Stock to Warehouse</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{addStockProduct.product_name}</p>
+              </div>
+              <button onClick={() => setAddStockProduct(null)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={addStockForm.handleSubmit(handleAddStock)} className="p-5 space-y-4">
+              <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3">
+                <span className="text-sm text-slate-600">Current warehouse stock</span>
+                <span className="text-sm font-bold text-slate-900">{addStockProduct.quantity} units</span>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Quantity to Add</label>
+                <input
+                  {...addStockForm.register('quantity', { required: true, min: 1 })}
+                  type="number" min="1" placeholder="e.g. 500"
+                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setAddStockProduct(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:text-slate-950">Cancel</button>
+                <button type="submit"
+                  className="flex-1 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors">
+                  Add to Warehouse
                 </button>
               </div>
             </form>

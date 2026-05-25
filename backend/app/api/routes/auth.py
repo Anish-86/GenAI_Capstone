@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.database.session import get_db
 from app.schemas.schemas import SignupRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse
 from app.models.models import User
@@ -33,6 +34,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    user.last_login = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
     data = {"sub": str(user.id), "role": user.role, "tenant_id": str(user.tenant_id) if user.tenant_id else None}
     return TokenResponse(
         access_token=create_access_token(data),

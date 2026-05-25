@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { Package, AlertTriangle, ArrowLeftRight, DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
+import { Package, AlertTriangle, ArrowLeftRight, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { inventoryService } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import type { DashboardStats, AdminStats } from '../types'
-import { demoAdminStats, demoDashboardStats } from '../demoData'
 import { format } from 'date-fns'
 
 const txnColors: Record<string, string> = {
@@ -33,14 +33,13 @@ export default function DashboardPage() {
       setLoading(true)
       try {
         const { data } = await inventoryService.dashboard()
-        setStats(data.total_products || data.recent_transactions?.length ? data : demoDashboardStats)
+        setStats(data)
         if (user?.role === 'super_admin') {
           const { data: ad } = await inventoryService.adminStats()
-          setAdminStats(ad.total_tenants ? ad : demoAdminStats)
+          setAdminStats(ad)
         }
       } catch {
-        setStats(demoDashboardStats)
-        if (user?.role === 'super_admin') setAdminStats(demoAdminStats)
+        toast.error('Failed to load dashboard')
       } finally {
         setLoading(false)
       }
@@ -76,7 +75,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-semibold text-slate-950">
             Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0]}
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">Here's what's happening with your inventory today</p>
+          <p className="text-slate-500 text-sm mt-0.5">{user?.role === 'super_admin' ? 'Platform-level tenant, store, and alert analytics' : "Here's what's happening with your inventory today"}</p>
         </div>
         <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:text-slate-950 hover:border-slate-300 transition-all">
           <RefreshCw size={14} />
@@ -120,8 +119,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Tenants', val: adminStats.total_tenants },
+            { label: 'Tenant Admins', val: adminStats.total_tenant_admins },
+            { label: 'Inventory Managers', val: adminStats.total_inventory_managers },
             { label: 'All Products', val: adminStats.total_products.toLocaleString() },
-            { label: 'Active Users', val: adminStats.active_users },
+            { label: 'Low Stock Alerts', val: adminStats.total_low_stock_alerts },
+            { label: 'Active Tenants', val: adminStats.active_tenants },
+            { label: 'Inactive Tenants', val: adminStats.inactive_tenants },
             { label: 'Total Transactions', val: adminStats.total_transactions.toLocaleString() },
           ].map(s => (
             <div key={s.label} className="bg-white/80 border border-slate-100 rounded-lg p-4">

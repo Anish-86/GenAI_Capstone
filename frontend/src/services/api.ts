@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
 })
 
 api.interceptors.request.use((config) => {
@@ -18,7 +18,7 @@ api.interceptors.response.use(
       const refresh = useAuthStore.getState().refreshToken
       if (refresh) {
         try {
-          const { data } = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/refresh`, { refresh_token: refresh })
+          const { data } = await axios.post(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/auth/refresh`, { refresh_token: refresh })
           useAuthStore.getState().setAuth(useAuthStore.getState().user!, data.access_token, data.refresh_token)
           error.config.headers.Authorization = `Bearer ${data.access_token}`
           return api(error.config)
@@ -56,6 +56,9 @@ export const productService = {
 export const inventoryService = {
   transactions: (params?: Record<string, any>) => api.get('/inventory/transactions', { params }),
   createTransaction: (data: any) => api.post('/inventory/transactions', data),
+  storeInventory: (params?: Record<string, any>) => api.get('/inventory/store-inventory', { params }),
+  assignStoreInventory: (data: any) => api.post('/inventory/store-inventory', data),
+  addWarehouseStock: (productId: string, quantity: number) => api.post(`/inventory/warehouse-stock/${productId}`, { quantity }),
   dashboard: () => api.get('/inventory/dashboard'),
   adminStats: () => api.get('/inventory/admin-stats'),
 }
@@ -63,9 +66,42 @@ export const inventoryService = {
 // ─── Tenants ──────────────────────────────────────────────────────────────────
 export const tenantService = {
   list: () => api.get('/tenants'),
+  overview: () => api.get('/tenants/overview'),
+  get: (id: string) => api.get(`/tenants/${id}`),
+  details: (id: string) => api.get(`/tenants/${id}/details`),
   create: (data: any) => api.post('/tenants', data),
   update: (id: string, data: any) => api.put(`/tenants/${id}`, data),
   delete: (id: string) => api.delete(`/tenants/${id}`),
+}
+
+// ─── Stores ─────────────────────────────────────────────────────────────────
+export const storeService = {
+  list: (params?: Record<string, any>) => api.get('/stores', { params }),
+  details: (id: string) => api.get(`/stores/${id}/details`),
+  create: (data: any) => api.post('/stores', data),
+  update: (id: string, data: any) => api.put(`/stores/${id}`, data),
+}
+
+// ─── Alerts ──────────────────────────────────────────────────────────────────
+export const alertService = {
+  list: (params?: Record<string, any>) => api.get('/alerts', { params }),
+  create: (data: any) => api.post('/alerts', data),
+  update: (id: string, data: any) => api.put(`/alerts/${id}`, data),
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+export const notificationService = {
+  list: () => api.get('/notifications'),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id: string) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/mark-all-read'),
+}
+
+// ─── Complaints ──────────────────────────────────────────────────────────────
+export const complaintService = {
+  list: () => api.get('/complaints'),
+  create: (data: any) => api.post('/complaints', data),
+  update: (id: string, data: any) => api.put(`/complaints/${id}`, data),
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
