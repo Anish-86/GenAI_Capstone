@@ -22,10 +22,10 @@ A production-ready full-stack inventory management platform with multi-tenancy, 
 - **Real-time dashboard** — stats, charts, recent activity feed
 - **Responsive UI** — works on mobile and desktop
 
----
+--- 
 
 ## Project Structure
-
+ 
 ```
 inventiq/
 ├── backend/

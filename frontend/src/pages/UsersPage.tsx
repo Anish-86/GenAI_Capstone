@@ -6,6 +6,7 @@ import { storeService, userService } from '../services/api'
 import type { Store, User } from '../types'
 import { format } from 'date-fns'
 import { useAuthStore } from '../store/authStore'
+import { optionalPhone, requiredEmail, requiredPassword, requiredText } from '../utils/validation'
 
 export default function UsersPage() {
   const { user: currentUser } = useAuthStore()
@@ -122,6 +123,9 @@ export default function UsersPage() {
   )
 
   const inputCls = "w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 focus:outline-none focus:border-teal-500"
+  const ErrorText = ({ form, name }: { form: any; name: string }) => (
+    form.formState.errors[name] ? <p className="text-xs text-red-500 mt-1">{String(form.formState.errors[name]?.message || 'This field is mandatory')}</p> : null
+  )
 
   return (
     <div className="space-y-6">
@@ -140,7 +144,7 @@ export default function UsersPage() {
           </div>
           <button onClick={() => { adminForm.reset(); setShowAdminModal(true) }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-medium text-white transition-colors">
-            <Plus size={13} /> Add Admin
+            <Plus size={13} /> CREATE
           </button>
         </div>
         {loading ? (
@@ -160,7 +164,7 @@ export default function UsersPage() {
           </div>
           <button onClick={() => { managerForm.reset(); setShowManagerModal(true) }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded-lg text-xs font-medium text-white transition-colors">
-            <Plus size={13} /> Add Manager
+            <Plus size={13} /> CREATE
           </button>
         </div>
         {stores.length === 0 && (
@@ -184,10 +188,10 @@ export default function UsersPage() {
               <button onClick={() => setShowAdminModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600"><X size={18} /></button>
             </div>
             <form onSubmit={adminForm.handleSubmit(createAdmin)} className="p-5 space-y-3">
-              <input {...adminForm.register('name', { required: true })} placeholder="Full name" className={inputCls} />
-              <input {...adminForm.register('email', { required: true })} type="email" placeholder="Email" className={inputCls} />
-              <input {...adminForm.register('phone')} placeholder="Phone (optional)" className={inputCls} />
-              <input {...adminForm.register('password', { required: true })} type="password" placeholder="Temporary password" className={inputCls} />
+              <div><input {...adminForm.register('name', requiredText('Name'))} placeholder="Full name" className={inputCls} /><ErrorText form={adminForm} name="name" /></div>
+              <div><input {...adminForm.register('email', requiredEmail)} type="email" placeholder="Email" className={inputCls} /><ErrorText form={adminForm} name="email" /></div>
+              <div><input {...adminForm.register('phone', optionalPhone)} placeholder="Phone (optional)" className={inputCls} /><ErrorText form={adminForm} name="phone" /></div>
+              <div><input {...adminForm.register('password', requiredPassword)} type="password" placeholder="Temporary password" className={inputCls} /><ErrorText form={adminForm} name="password" /></div>
               <button className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors">Create Retailer Admin</button>
             </form>
           </div>
@@ -203,16 +207,17 @@ export default function UsersPage() {
               <button onClick={() => setShowManagerModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600"><X size={18} /></button>
             </div>
             <form onSubmit={managerForm.handleSubmit(createManager)} className="p-5 space-y-3">
-              <input {...managerForm.register('name', { required: true })} placeholder="Full name" className={inputCls} />
-              <input {...managerForm.register('email', { required: true })} type="email" placeholder="Email" className={inputCls} />
-              <input {...managerForm.register('phone')} placeholder="Phone (optional)" className={inputCls} />
-              <input {...managerForm.register('password', { required: true })} type="password" placeholder="Temporary password" className={inputCls} />
+              <div><input {...managerForm.register('name', requiredText('Name'))} placeholder="Full name" className={inputCls} /><ErrorText form={managerForm} name="name" /></div>
+              <div><input {...managerForm.register('email', requiredEmail)} type="email" placeholder="Email" className={inputCls} /><ErrorText form={managerForm} name="email" /></div>
+              <div><input {...managerForm.register('phone', optionalPhone)} placeholder="Phone (optional)" className={inputCls} /><ErrorText form={managerForm} name="phone" /></div>
+              <div><input {...managerForm.register('password', requiredPassword)} type="password" placeholder="Temporary password" className={inputCls} /><ErrorText form={managerForm} name="password" /></div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Assign to Store</label>
-                <select {...managerForm.register('store_id', { required: true })} className={inputCls}>
+                <select {...managerForm.register('store_id', { required: 'Store is mandatory' })} className={inputCls}>
                   <option value="">Select store location</option>
                   {stores.map(s => <option key={s.id} value={s.id}>{s.name} · {s.location}</option>)}
                 </select>
+                <ErrorText form={managerForm} name="store_id" />
               </div>
               <button className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors">Create Inventory Manager</button>
             </form>
@@ -230,7 +235,8 @@ export default function UsersPage() {
             </div>
             <form onSubmit={resetForm.handleSubmit(resetPassword)} className="p-5 space-y-3">
               <div className="text-sm text-slate-600">{resetUser.name} · {resetUser.email}</div>
-              <input {...resetForm.register('password', { required: true })} type="password" placeholder="New password" className={inputCls} />
+              <input {...resetForm.register('password', requiredPassword)} type="password" placeholder="New password" className={inputCls} />
+              {resetForm.formState.errors.password && <p className="text-xs text-red-500 mt-1">{String(resetForm.formState.errors.password.message)}</p>}
               <button className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium">Reset Password</button>
             </form>
           </div>

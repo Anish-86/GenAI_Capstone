@@ -7,6 +7,7 @@ import { alertService, inventoryService, productService, storeService } from '..
 import type { Product, PaginatedProducts, Store, StoreInventory } from '../types'
 import { useAuthStore } from '../store/authStore'
 import { useDebounce } from '../hooks/useDebounce'
+import { requiredNumber } from '../utils/validation'
 
 export default function ProductsPage() {
   const { user } = useAuthStore()
@@ -23,7 +24,7 @@ export default function ProductsPage() {
   const [storeInventory, setStoreInventory] = useState<StoreInventory[]>([])
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>()
-  const assignForm = useForm<any>({ defaultValues: { low_stock_threshold: 10 } })
+  const assignForm = useForm<any>()
   const addStockForm = useForm<{ quantity: number }>()
   const assignProductId = assignForm.watch('product_id')
   const assignStoreId = assignForm.watch('store_id')
@@ -102,6 +103,10 @@ export default function ProductsPage() {
   const assignStock = async (data: any) => {
     try {
       const existing = storeInventory.find(item => item.product_id === data.product_id && item.store_id === data.store_id)
+      if (!existing && Number(data.low_stock_threshold) > Number(data.quantity)) {
+        assignForm.setError('low_stock_threshold', { message: 'Threshold cannot be greater than assigned quantity' })
+        return
+      }
       const payload: Record<string, any> = {
         product_id: data.product_id,
         store_id: data.store_id,
@@ -112,7 +117,7 @@ export default function ProductsPage() {
       }
       await inventoryService.assignStoreInventory(payload)
       toast.success('Stock assigned to store — warehouse qty updated')
-      assignForm.reset({ low_stock_threshold: 10 })
+      assignForm.reset()
       const [{ data: inventoryData }] = await Promise.all([
         inventoryService.storeInventory(),
         load(),
@@ -177,22 +182,35 @@ export default function ProductsPage() {
         <div className="bg-white border border-slate-200 rounded-lg p-4">
           <div className="text-sm font-semibold text-slate-900 mb-3">Assign Product Quantity to Store</div>
           <form onSubmit={assignForm.handleSubmit(assignStock)} className="grid md:grid-cols-5 gap-3">
-            <select {...assignForm.register('product_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              <option value="">Product</option>
-              {data?.items.map(product => <option key={product.id} value={product.id}>{product.product_name}</option>)}
-            </select>
-            <select {...assignForm.register('store_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              <option value="">Store</option>
-              {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
-            </select>
-            <input {...assignForm.register('quantity', { required: true })} type="number" placeholder="Quantity" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input
-              {...assignForm.register('low_stock_threshold')}
-              type="number"
-              placeholder={existingStoreStock ? 'Existing threshold' : 'Threshold'}
-              disabled={Boolean(existingStoreStock)}
-              className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm disabled:text-slate-500 disabled:cursor-not-allowed"
-            />
+            <div>
+              <select {...assignForm.register('product_id', { required: 'Product is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">Product</option>
+                {data?.items.map(product => <option key={product.id} value={product.id}>{product.product_name}</option>)}
+              </select>
+              {assignForm.formState.errors.product_id && <p className="text-xs text-red-500 mt-1">{String(assignForm.formState.errors.product_id.message)}</p>}
+            </div>
+            <div>
+              <select {...assignForm.register('store_id', { required: 'Store is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">Store</option>
+                {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
+              </select>
+              {assignForm.formState.errors.store_id && <p className="text-xs text-red-500 mt-1">{String(assignForm.formState.errors.store_id.message)}</p>}
+            </div>
+            <div>
+              <input {...assignForm.register('quantity', requiredNumber('Quantity', 1))} type="number" min="1" placeholder="Quantity" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              {assignForm.formState.errors.quantity && <p className="text-xs text-red-500 mt-1">{String(assignForm.formState.errors.quantity.message)}</p>}
+            </div>
+            <div>
+              <input
+                {...assignForm.register('low_stock_threshold', existingStoreStock ? {} : requiredNumber('Threshold', 1))}
+                type="number"
+                min="1"
+                placeholder={existingStoreStock ? 'Existing threshold' : 'Threshold'}
+                disabled={Boolean(existingStoreStock)}
+                className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm disabled:text-slate-500 disabled:cursor-not-allowed"
+              />
+              {assignForm.formState.errors.low_stock_threshold && <p className="text-xs text-red-500 mt-1">{String(assignForm.formState.errors.low_stock_threshold.message)}</p>}
+            </div>
             <button className="rounded-lg bg-teal-600 text-white text-sm font-medium">Assign</button>
           </form>
         </div>
@@ -325,7 +343,7 @@ export default function ProductsPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {(user?.role === 'inventory_manager' ? [
-                  { name: 'quantity', label: 'Quantity', type: 'number' },
+                  { name: 'quantity', label: 'Quantity', type: 'number', required: true },
                   { name: 'warehouse_location', label: 'Warehouse Location' },
                 ] : [
                   { name: 'product_name', label: 'Product Name', required: true },
@@ -333,14 +351,14 @@ export default function ProductsPage() {
                   { name: 'category', label: 'Category' },
                   { name: 'brand', label: 'Brand' },
                   { name: 'price', label: 'Price', type: 'number', required: true },
-                  { name: 'quantity', label: 'Quantity', type: 'number' },
+                  { name: 'quantity', label: 'Quantity', type: 'number', required: true },
                   { name: 'supplier', label: 'Supplier' },
                   { name: 'warehouse_location', label: 'Warehouse Location' },
                 ]).map(field => (
                   <div key={field.name}>
                     <label className="block text-xs font-medium text-slate-600 mb-1.5">{field.label}</label>
                     <input
-                      {...register(field.name as any, { required: field.required ? `${field.label} is required` : false })}
+                      {...register(field.name as any, field.type === 'number' ? requiredNumber(field.label, field.name === 'quantity' ? 0 : 1) : { required: field.required ? `${field.label} is mandatory` : false })}
                       type={field.type || 'text'}
                       step={field.type === 'number' ? '0.01' : undefined}
                       className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
@@ -395,6 +413,7 @@ export default function ProductsPage() {
                   type="number" min="1" placeholder="e.g. 500"
                   className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500"
                 />
+                {addStockForm.formState.errors.quantity && <p className="text-xs text-red-500 mt-1">Quantity is mandatory</p>}
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setAddStockProduct(null)}
