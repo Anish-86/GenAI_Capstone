@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuthStore } from '../store/authStore'
 import { notificationService } from '../services/api'
 import type { Notification } from '../types'
@@ -28,14 +29,12 @@ export default function AppLayout() {
   const [visibleNotifications, setVisibleNotifications] = useState(6)
   const [contentScrolled, setContentScrolled] = useState(false)
   const scrollTicking = useRef(false)
-  const notificationRef = useRef<HTMLDivElement | null>(null)
-  const unread = notifications.filter(notification => !notification.is_read).length
+  const bellButtonRef = useRef<HTMLButtonElement | null>(null)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
+  const unread = notifications.filter(n => !n.is_read).length
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
+  const handleLogout = () => { logout(); navigate('/login') }
   const filteredNav = navItems.filter(item => !item.roles || item.roles.includes(user?.role || ''))
 
   const loadNotifications = async () => {
@@ -56,11 +55,11 @@ export default function AppLayout() {
   }, [])
 
   useEffect(() => {
-    const onClickOutside = (event: MouseEvent) => {
-      if (!notificationRef.current) return
-      if (!notificationRef.current.contains(event.target as Node)) {
-        setNotificationOpen(false)
-      }
+    const onClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (bellButtonRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setNotificationOpen(false)
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
@@ -68,48 +67,110 @@ export default function AppLayout() {
 
   const openNotifications = async () => {
     const opening = !notificationOpen
-    setNotificationOpen(opening)
-    if (opening) {
+    if (opening && bellButtonRef.current) {
+      const rect = bellButtonRef.current.getBoundingClientRect()
+      setDropdownPos({
+        top: rect.bottom + 10,
+        right: window.innerWidth - rect.right,
+      })
       setVisibleNotifications(6)
       await loadNotifications()
     }
+    setNotificationOpen(opening)
   }
 
   const clearNotifications = async () => {
-    try {
-      await notificationService.clearAll()
-      setNotifications([])
-      setVisibleNotifications(6)
-    } catch {}
+    try { await notificationService.clearAll(); setNotifications([]); setVisibleNotifications(6) } catch {}
   }
 
   const markRead = async (notification: Notification) => {
-    try {
-      await notificationService.markRead(notification.id)
-      loadNotifications()
-    } catch {}
-    // Navigate based on entity type
+    try { await notificationService.markRead(notification.id); loadNotifications() } catch {}
     setNotificationOpen(false)
-    if (notification.entity_type === 'low_stock_alert') {
-      navigate('/alerts')
-    } else if (notification.entity_type === 'complaint') {
+    if (notification.entity_type === 'low_stock_alert' || notification.entity_type === 'complaint') {
       navigate('/alerts')
     }
   }
 
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'
-  const handleContentScroll = (event: React.UIEvent<HTMLElement>) => {
+  const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
     if (scrollTicking.current) return
     scrollTicking.current = true
     window.requestAnimationFrame(() => {
-      setContentScrolled(event.currentTarget.scrollTop > 8)
+      setContentScrolled(e.currentTarget.scrollTop > 8)
       scrollTicking.current = false
     })
   }
 
+  const notificationDropdown = notificationOpen ? createPortal(
+    <div
+      ref={dropdownRef}
+      style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}
+      className="w-[min(22.5rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl"
+    >
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Notifications</div>
+          <div className="mt-1 text-xs text-slate-500">Latest inventory updates</div>
+        </div>
+        {notifications.length > 0 && (
+          <button
+            type="button"
+            onClick={clearNotifications}
+            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+      <div className="mt-3 max-h-[min(26rem,calc(100vh-8rem))] space-y-3 overflow-y-auto pr-1">
+        {notifications.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+            <div className="text-sm font-semibold text-slate-900">No notifications</div>
+            <div className="mt-1 text-xs text-slate-500">You are all caught up for now.</div>
+          </div>
+        ) : notifications.slice(0, visibleNotifications).map(notification => (
+          <button
+            key={notification.id}
+            type="button"
+            onClick={() => markRead(notification)}
+            className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition-all duration-200 hover:border-teal-300 hover:shadow-lg ${
+              notification.is_read ? 'border-slate-200 bg-white' : 'border-teal-100 bg-teal-50/70'
+            }`}
+          >
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-teal-100 bg-teal-50 text-teal-600">
+              <Bell size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-slate-900">{notification.title}</div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  {new Date(notification.created_at).toLocaleString(undefined, {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              <div className="mt-1 text-sm leading-6 text-slate-500">{notification.message}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      {visibleNotifications < notifications.length && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <button
+            onClick={() => setVisibleNotifications(c => c + 6)}
+            className="w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:border-slate-300"
+          >
+            Read more
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body
+  ) : null
+
+
   return (
     <div className="app-shell flex h-screen overflow-hidden">
-      {/* Mobile overlay */}
       {/* Sidebar */}
       <aside className={`
         fixed lg:relative z-50 flex flex-col h-full border-r
@@ -191,82 +252,20 @@ export default function AppLayout() {
         {/* Topbar */}
         <header className={`relative z-[80] flex items-center justify-end gap-4 h-20 px-6 border-b transition-shadow ${contentScrolled ? 'shadow-lg shadow-slate-950/5' : ''}`}>
           <div className="ml-auto flex items-center gap-2">
-            <div ref={notificationRef} className="relative inline-block text-left">
-              <button
-                type="button"
-                onClick={openNotifications}
-                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-600 shadow-sm transition-all duration-200 hover:border-teal-300 hover:bg-white hover:text-teal-600"
-                aria-label="Notifications"
-              >
-                <Bell size={18} />
-                {unread > 0 && (
-                  <span className="absolute -right-1 -top-1 flex min-h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white ring-2 ring-white">
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                )}
-              </button>
-              {notificationOpen && (
-                <div className="absolute right-0 z-[1000] mt-2 w-[min(22.5rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
-                  <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Notifications</div>
-                      <div className="mt-1 text-xs text-slate-500">Latest inventory updates</div>
-                    </div>
-                    {notifications.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={clearNotifications}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-3 max-h-[min(26rem,calc(100vh-8rem))] space-y-3 overflow-y-auto pr-1">
-                    {notifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                        <div className="text-sm font-semibold text-slate-900">No notifications</div>
-                        <div className="mt-1 text-xs text-slate-500">You are all caught up for now.</div>
-                      </div>
-                    ) : notifications.slice(0, visibleNotifications).map(notification => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        onClick={() => markRead(notification)}
-                        className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition-all duration-200 hover:border-teal-300 hover:shadow-lg ${
-                          notification.is_read ? 'border-slate-200 bg-white' : 'border-teal-100 bg-teal-50/70'
-                        }`}
-                      >
-                        <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-teal-100 bg-teal-50 text-teal-600">
-                          <Bell size={16} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-sm font-semibold text-slate-900">{notification.title}</div>
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                              {new Date(notification.created_at).toLocaleString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                          <div className="mt-1 text-sm leading-6 text-slate-500">{notification.message}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  {visibleNotifications < notifications.length && (
-                    <div className="mt-3 border-t border-slate-100 pt-3">
-                      <button onClick={() => setVisibleNotifications(count => count + 6)} className="w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:border-slate-300">
-                        Read more
-                      </button>
-                    </div>
-                  )}
-                </div>
+            <button
+              ref={bellButtonRef}
+              type="button"
+              onClick={openNotifications}
+              className={`relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-600 shadow-sm transition-all duration-200 hover:border-teal-300 hover:bg-white hover:text-teal-600 ${notificationOpen ? 'border-teal-300 bg-white text-teal-600' : ''}`}
+              aria-label="Notifications"
+            >
+              <Bell size={18} />
+              {unread > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white ring-2 ring-white">
+                  {unread > 99 ? '99+' : unread}
+                </span>
               )}
-            </div>
+            </button>
           </div>
         </header>
 
@@ -275,6 +274,8 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {notificationDropdown}
       <ChatWidget />
     </div>
   )
