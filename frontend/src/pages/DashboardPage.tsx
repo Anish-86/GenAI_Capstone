@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { Package, AlertTriangle, ArrowLeftRight, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
+import { Package, AlertTriangle, ArrowLeftRight, DollarSign, ArrowUpRight, ArrowDownRight, MapPin, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventoryService } from '../services/api'
 import { useAuthStore } from '../store/authStore'
@@ -48,9 +48,9 @@ export default function DashboardPage() {
   }, [user])
 
   const StatCard = ({ title, value, icon: Icon, change, color }: any) => (
-    <div className="bg-white border border-slate-200 rounded-lg p-5">
+    <div className="group bg-white border border-slate-200 rounded-lg p-5 transition-transform duration-200 hover:-translate-y-1">
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center`}>
+        <div className={`w-11 h-11 rounded-2xl ${color} flex items-center justify-center`}>
           <Icon size={18} />
         </div>
         {change !== undefined && (
@@ -60,27 +60,44 @@ export default function DashboardPage() {
           </span>
         )}
       </div>
-      <div className="text-2xl font-bold text-slate-950 mb-1">
+      <div className="text-3xl font-black text-slate-950 mb-1">
         {loading ? <div className="h-7 w-24 bg-slate-100 rounded animate-pulse" /> : value}
       </div>
-      <div className="text-sm text-slate-500">{title}</div>
+      <div className="text-sm font-medium text-slate-500">{title}</div>
     </div>
   )
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-950">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0]}
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">{user?.role === 'super_admin' ? 'Platform-level tenant, store, and alert analytics' : "Here's what's happening with your inventory today"}</p>
+      <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-6 lg:p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 opacity-40" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)',
+          backgroundSize: '36px 36px',
+        }} />
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h1 className="text-3xl font-black leading-tight lg:text-5xl">
+              Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0]}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-white/68 lg:text-base">
+              {user?.role === 'super_admin' ? 'Platform-level tenant, store, and alert analytics in one control plane.' : 'Monitor product movement, store readiness, low-stock risk, and warehouse value in real time.'}
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 lg:w-[360px]">
+            {[
+              [MapPin, 'Stores', user?.role === 'super_admin' ? adminStats?.active_tenants ?? '—' : stats?.low_stock_count ?? '—'],
+              [ShieldCheck, 'Health', 'Live'],
+              [Package, 'SKUs', stats?.total_products ?? '—'],
+            ].map(([Icon, label, val]: any) => (
+              <div key={label} className="rounded-2xl border border-white/12 bg-white/10 p-4">
+                <Icon size={17} className="text-lime-300" />
+                <div className="mt-4 text-xl font-black">{val}</div>
+                <div className="text-xs text-white/52">{label}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:text-slate-950 hover:border-slate-300 transition-all">
-          <RefreshCw size={14} />
-          Refresh
-        </button>
       </div>
 
       {/* Stats */}
@@ -90,28 +107,28 @@ export default function DashboardPage() {
           value={stats?.total_products.toLocaleString() ?? '—'}
           icon={Package}
           change={12}
-          color="bg-teal-600/15 text-teal-600"
+          color="bg-lime-100 text-slate-950"
         />
         <StatCard
           title="Low Stock Items"
           value={stats?.low_stock_count ?? '—'}
           icon={AlertTriangle}
           change={-3}
-          color="bg-amber-500/15 text-amber-400"
+          color="bg-amber-100 text-amber-700"
         />
         <StatCard
           title="Transactions"
           value={stats?.total_transactions.toLocaleString() ?? '—'}
           icon={ArrowLeftRight}
           change={8}
-          color="bg-blue-500/15 text-blue-400"
+          color="bg-blue-100 text-blue-700"
         />
         <StatCard
           title="Inventory Value"
           value={stats ? `$${(stats.total_value / 1000).toFixed(1)}K` : '—'}
           icon={DollarSign}
           change={5}
-          color="bg-emerald-500/15 text-emerald-400"
+          color="bg-emerald-100 text-emerald-700"
         />
       </div>
 
@@ -140,7 +157,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-semibold text-slate-950 text-sm">Stock Movement</h2>
+              <h2 className="font-bold text-slate-950 text-base">Stock Movement</h2>
               <p className="text-xs text-slate-500 mt-0.5">Last 6 months</p>
             </div>
             <div className="flex gap-4 text-xs text-slate-500">
@@ -152,8 +169,8 @@ export default function DashboardPage() {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="gIn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#21c45d" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#21c45d" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gOut" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
@@ -164,7 +181,7 @@ export default function DashboardPage() {
               <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' }} />
-              <Area type="monotone" dataKey="in" stroke="#8b5cf6" strokeWidth={2} fill="url(#gIn)" />
+              <Area type="monotone" dataKey="in" stroke="#21c45d" strokeWidth={2.5} fill="url(#gIn)" />
               <Area type="monotone" dataKey="out" stroke="#ef4444" strokeWidth={1.5} fill="url(#gOut)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -172,7 +189,7 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         <div className="bg-white border border-slate-200 rounded-lg p-5">
-          <h2 className="font-semibold text-slate-950 text-sm mb-4">Recent Activity</h2>
+          <h2 className="font-bold text-slate-950 text-base mb-4">Recent Activity</h2>
           <div className="space-y-3">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (

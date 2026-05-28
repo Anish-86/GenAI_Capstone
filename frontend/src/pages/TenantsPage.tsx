@@ -6,6 +6,7 @@ import { tenantService } from '../services/api'
 import { Link } from 'react-router-dom'
 import type { Tenant, TenantOverview } from '../types'
 import { format } from 'date-fns'
+import { requiredEmail, requiredPassword, requiredText } from '../utils/validation'
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   active: { label: 'Active', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-500/20', icon: CheckCircle2 },
@@ -17,7 +18,7 @@ export default function TenantsPage() {
   const [tenants, setTenants] = useState<TenantOverview[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<any>()
+  const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm<any>()
 
   const load = async () => {
     setLoading(true)
@@ -179,13 +180,15 @@ export default function TenantsPage() {
             <form onSubmit={handleSubmit(onCreate)} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Company Name</label>
-                <input {...register('company_name', { required: true })} placeholder="Acme Corp"
+                <input {...register('company_name', { required: 'Company name is mandatory' })} placeholder="Acme Corp"
                   className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                {errors.company_name && <p className="text-xs text-red-500 mt-1">{String(errors.company_name.message)}</p>}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Contact Email</label>
-                <input {...register('contact_email', { required: true })} type="email" placeholder="admin@acme.com"
+                <input {...register('contact_email', requiredEmail)} type="email" placeholder="admin@acme.com"
                   className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                {errors.contact_email && <p className="text-xs text-red-500 mt-1">{String(errors.contact_email.message)}</p>}
               </div>
               <div className="border-t border-slate-100 pt-4 space-y-4">
                 <div>
@@ -196,12 +199,21 @@ export default function TenantsPage() {
                     <option value="inventory_manager">Inventory Manager</option>
                   </select>
                 </div>
-                <input {...register('initial_user_name')} placeholder="User full name"
-                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
-                <input {...register('initial_user_email')} type="email" placeholder="user@company.com"
-                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
-                <input {...register('initial_user_password')} type="password" placeholder="Temporary password"
-                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                <div>
+                  <input {...register('initial_user_name', requiredText('Name'))} placeholder="User full name"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                  {errors.initial_user_name && <p className="text-xs text-red-500 mt-1">{String(errors.initial_user_name.message)}</p>}
+                </div>
+                <div>
+                  <input {...register('initial_user_email', requiredEmail)} type="email" placeholder="user@company.com"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                  {errors.initial_user_email && <p className="text-xs text-red-500 mt-1">{String(errors.initial_user_email.message)}</p>}
+                </div>
+                <div>
+                  <input {...register('initial_user_password', requiredPassword)} type="password" placeholder="Temporary password"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors" />
+                  {errors.initial_user_password && <p className="text-xs text-red-500 mt-1">{String(errors.initial_user_password.message)}</p>}
+                </div>
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowModal(false)}

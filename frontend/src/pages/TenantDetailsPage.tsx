@@ -6,6 +6,9 @@ import { ArrowLeft, Building2, Package, MapPin, AlertTriangle, Activity, Message
 import { inventoryService, storeService, tenantService, userService } from '../services/api'
 import type { Complaint, InventoryTransaction, LowStockAlert, Product, Store, StoreInventory, Tenant, User } from '../types'
 import { format } from 'date-fns'
+import Pagination from '../components/common/Pagination'
+import { paginate } from '../utils/tableTools'
+import { optionalPhone, requiredEmail, requiredNumber, requiredPassword, requiredText } from '../utils/validation'
 
 export default function TenantDetailsPage() {
   const { id } = useParams()
@@ -19,10 +22,18 @@ export default function TenantDetailsPage() {
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([])
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
+  const [createPanel, setCreatePanel] = useState<'admin' | 'manager' | 'store' | null>(null)
+  const [distributionPage, setDistributionPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
+  const [alertPage, setAlertPage] = useState(1)
+  const [complaintPage, setComplaintPage] = useState(1)
   const adminForm = useForm<any>({ defaultValues: { role: 'retailer_admin' } })
   const managerForm = useForm<any>({ defaultValues: { role: 'inventory_manager' } })
   const storeForm = useForm<any>()
-  const assignForm = useForm<any>({ defaultValues: { low_stock_threshold: 10 } })
+  const assignForm = useForm<any>()
+  const assignProductId = assignForm.watch('product_id')
+  const assignStoreId = assignForm.watch('store_id')
+  const existingStoreStock = inventory.find(item => item.product_id === assignProductId && item.store_id === assignStoreId)
 
   const load = async () => {
     if (!id) return
@@ -52,6 +63,9 @@ export default function TenantDetailsPage() {
   }
 
   useEffect(() => { load() }, [id])
+  useEffect(() => {
+    if (existingStoreStock) assignForm.setValue('low_stock_threshold', existingStoreStock.low_stock_threshold)
+  }, [assignForm, existingStoreStock])
 
   const tenantProducts = products
 
@@ -59,6 +73,7 @@ export default function TenantDetailsPage() {
     await storeService.create({ ...data, tenant_id: id })
     toast.success('Store created')
     storeForm.reset()
+    setCreatePanel(null)
     load()
   }
 
@@ -72,18 +87,25 @@ export default function TenantDetailsPage() {
     toast.success(role === 'retailer_admin' ? 'Retailer admin created' : 'Inventory manager created')
     adminForm.reset({ role: 'retailer_admin' })
     managerForm.reset({ role: 'inventory_manager' })
+    setCreatePanel(null)
     load()
   }
 
   const assignStock = async (data: any) => {
-    await inventoryService.assignStoreInventory({
+    const existing = inventory.find(item => item.product_id === data.product_id && item.store_id === data.store_id)
+    if (!existing && Number(data.low_stock_threshold) > Number(data.quantity)) {
+      assignForm.setError('low_stock_threshold', { message: 'Threshold cannot be greater than assigned quantity' })
+      return
+    }
+    const payload: Record<string, any> = {
       product_id: data.product_id,
       store_id: data.store_id,
       quantity: parseInt(data.quantity),
-      low_stock_threshold: parseInt(data.low_stock_threshold || '10'),
-    })
+    }
+    if (!existing) payload.low_stock_threshold = parseInt(data.low_stock_threshold)
+    await inventoryService.assignStoreInventory(payload)
     toast.success('Store stock assigned')
-    assignForm.reset({ low_stock_threshold: 10 })
+    assignForm.reset()
     load()
   }
 
@@ -110,6 +132,10 @@ export default function TenantDetailsPage() {
     </section>
   )
 
+  const ErrorText = ({ form, name }: { form: any; name: string }) => (
+    form.formState.errors[name] ? <p className="text-xs text-red-500 mt-1">{String(form.formState.errors[name]?.message || 'This field is mandatory')}</p> : null
+  )
+
   const UserRows = ({ users }: { users: User[] }) => (
     <div className="divide-y divide-slate-100">
       {users.map(user => (
@@ -126,6 +152,11 @@ export default function TenantDetailsPage() {
       {users.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No records</div>}
     </div>
   )
+
+  const distribution = paginate(inventory, distributionPage, 5)
+  const activity = paginate(transactions, activityPage, 5)
+  const alertRows = paginate(alerts, alertPage, 5)
+  const complaintRows = paginate(complaints, complaintPage, 5)
 
   if (loading) return <div className="text-sm text-slate-500">Loading tenant...</div>
 
@@ -158,52 +189,65 @@ export default function TenantDetailsPage() {
 
       <div className="grid lg:grid-cols-2 gap-5">
         <Section title="Retailer Admins" icon={Building2}>
-          <form onSubmit={adminForm.handleSubmit(data => createUser(data, 'retailer_admin'))} className="grid grid-cols-2 gap-3 mb-4">
-            <input {...adminForm.register('name', { required: true })} placeholder="Full name" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...adminForm.register('email', { required: true })} placeholder="Email" type="email" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...adminForm.register('phone')} placeholder="Phone" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...adminForm.register('password', { required: true })} placeholder="Password" type="password" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />Create Retailer Admin</button>
-          </form>
+          <div className="mb-4 flex justify-end">
+            <button onClick={() => setCreatePanel(createPanel === 'admin' ? null : 'admin')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE</button>
+          </div>
+          {createPanel === 'admin' && (
+            <form onSubmit={adminForm.handleSubmit(data => createUser(data, 'retailer_admin'))} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div><input {...adminForm.register('name', requiredText('Name'))} placeholder="Full name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="name" /></div>
+              <div><input {...adminForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="email" /></div>
+              <div><input {...adminForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="phone" /></div>
+              <div><input {...adminForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="password" /></div>
+              <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Retailer Admin</button>
+            </form>
+          )}
           <UserRows users={admins} />
         </Section>
 
         <Section title="Stores & Inventory Managers" icon={MapPin}>
-          <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3 mb-4">
-            <input {...storeForm.register('name', { required: true })} placeholder="Store name" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...storeForm.register('location', { required: true })} placeholder="Location" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Store</button>
-          </form>
-          <form onSubmit={managerForm.handleSubmit(data => createUser(data, 'inventory_manager'))} className="grid grid-cols-2 gap-3 mb-4">
-            <input {...managerForm.register('name', { required: true })} placeholder="Manager name" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...managerForm.register('email', { required: true })} placeholder="Email" type="email" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...managerForm.register('phone')} placeholder="Phone" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...managerForm.register('password', { required: true })} placeholder="Password" type="password" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <select {...managerForm.register('store_id', { required: true })} className="col-span-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              <option value="">Select store location</option>
-              {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
-            </select>
-            <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Inventory Manager</button>
-          </form>
+          <div className="mb-4 flex justify-end gap-2">
+            <button onClick={() => setCreatePanel(createPanel === 'store' ? null : 'store')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE STORE</button>
+            <button onClick={() => setCreatePanel(createPanel === 'manager' ? null : 'manager')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE MANAGER</button>
+          </div>
+          {createPanel === 'store' && (
+            <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div><input {...storeForm.register('name', { required: 'Store name is mandatory' })} placeholder="Store name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="name" /></div>
+              <div><input {...storeForm.register('location', { required: 'Location is mandatory' })} placeholder="Location" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="location" /></div>
+              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Store</button>
+            </form>
+          )}
+          {createPanel === 'manager' && (
+            <form onSubmit={managerForm.handleSubmit(data => createUser(data, 'inventory_manager'))} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div><input {...managerForm.register('name', requiredText('Name'))} placeholder="Manager name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="name" /></div>
+              <div><input {...managerForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="email" /></div>
+              <div><input {...managerForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="phone" /></div>
+              <div><input {...managerForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="password" /></div>
+              <div className="col-span-2"><select {...managerForm.register('store_id', { required: 'Store is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">Select store location</option>
+                {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
+              </select><ErrorText form={managerForm} name="store_id" /></div>
+              <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Inventory Manager</button>
+            </form>
+          )}
           <UserRows users={managers} />
         </Section>
 
         <Section title="Products & Store Distribution" icon={Package}>
           <form onSubmit={assignForm.handleSubmit(assignStock)} className="grid grid-cols-2 gap-3 mb-4">
-            <select {...assignForm.register('product_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            <div><select {...assignForm.register('product_id', { required: 'Product is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
               <option value="">Product</option>
               {tenantProducts.map(product => <option key={product.id} value={product.id}>{product.product_name}</option>)}
-            </select>
-            <select {...assignForm.register('store_id', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            </select><ErrorText form={assignForm} name="product_id" /></div>
+            <div><select {...assignForm.register('store_id', { required: 'Store is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
               <option value="">Store</option>
               {stores.map(store => <option key={store.id} value={store.id}>{store.location}</option>)}
-            </select>
-            <input {...assignForm.register('quantity', { required: true })} type="number" placeholder="Quantity" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            <input {...assignForm.register('low_stock_threshold')} type="number" placeholder="Low stock threshold" className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </select><ErrorText form={assignForm} name="store_id" /></div>
+            <div><input {...assignForm.register('quantity', requiredNumber('Quantity', 1))} type="number" min="1" placeholder="Quantity" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={assignForm} name="quantity" /></div>
+            <div><input {...assignForm.register('low_stock_threshold', existingStoreStock ? {} : requiredNumber('Low stock threshold', 1))} type="number" min="1" placeholder={existingStoreStock ? 'Existing threshold' : 'Low stock threshold'} disabled={Boolean(existingStoreStock)} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm disabled:text-slate-500 disabled:cursor-not-allowed" /><ErrorText form={assignForm} name="low_stock_threshold" /></div>
             <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Assign Quantity to Store</button>
           </form>
           <div className="divide-y divide-slate-100">
-            {inventory.map(item => (
+            {distribution.pageItems.map(item => (
               <div key={item.id} className="py-3 flex justify-between gap-4">
                 <div>
                   <div className="text-sm font-medium text-slate-900">{item.product?.product_name}</div>
@@ -213,11 +257,12 @@ export default function TenantDetailsPage() {
               </div>
             ))}
           </div>
+          <Pagination page={distribution.safePage} totalPages={distribution.totalPages} totalItems={inventory.length} pageSize={5} onPageChange={setDistributionPage} />
         </Section>
 
         <Section title="Inventory Overview & Activity Logs" icon={Activity}>
           <div className="divide-y divide-slate-100">
-            {transactions.slice(0, 12).map(txn => (
+            {activity.pageItems.map(txn => (
               <div key={txn.id} className="py-3">
                 <div className="text-sm text-slate-900">{txn.product?.product_name || 'Product'} · {txn.store?.location || 'Store'}</div>
                 <div className="text-xs text-slate-500">{txn.transaction_type} {txn.quantity} units by {txn.updated_by_user?.name || 'Manager'} · {format(new Date(txn.timestamp), 'MMM d, HH:mm')}</div>
@@ -225,22 +270,24 @@ export default function TenantDetailsPage() {
             ))}
             {transactions.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No activity yet</div>}
           </div>
+          <Pagination page={activity.safePage} totalPages={activity.totalPages} totalItems={transactions.length} pageSize={5} onPageChange={setActivityPage} />
         </Section>
 
         <Section title="Low Stock Monitoring" icon={AlertTriangle}>
           <div className="divide-y divide-slate-100">
-            {alerts.map(alert => (
+            {alertRows.pageItems.map(alert => (
               <div key={alert.id} className="py-3">
                 <div className="text-sm font-medium text-slate-900">{alert.product?.product_name || 'Product'} · {alert.store?.location || 'Store'}</div>
                 <div className="text-xs text-slate-500">Remaining {alert.remaining_quantity ?? '-'} · {alert.status}</div>
               </div>
             ))}
           </div>
+          <Pagination page={alertRows.safePage} totalPages={alertRows.totalPages} totalItems={alerts.length} pageSize={5} onPageChange={setAlertPage} />
         </Section>
 
         <Section title="Complaints Raised by Stores" icon={MessageSquare}>
           <div className="divide-y divide-slate-100">
-            {complaints.map(complaint => (
+            {complaintRows.pageItems.map(complaint => (
               <div key={complaint.id} className="py-3">
                 <div className="text-sm font-medium text-slate-900">{complaint.complaint_type} · {complaint.store?.location || 'Store'}</div>
                 <div className="text-xs text-slate-500">{complaint.priority} priority · {complaint.status}</div>
@@ -248,6 +295,7 @@ export default function TenantDetailsPage() {
               </div>
             ))}
           </div>
+          <Pagination page={complaintRows.safePage} totalPages={complaintRows.totalPages} totalItems={complaints.length} pageSize={5} onPageChange={setComplaintPage} />
         </Section>
       </div>
     </div>

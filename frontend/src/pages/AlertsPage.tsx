@@ -6,6 +6,8 @@ import { alertService, complaintService, productService } from '../services/api'
 import type { Complaint, LowStockAlert, Product } from '../types'
 import { format } from 'date-fns'
 import { useAuthStore } from '../store/authStore'
+import Pagination from '../components/common/Pagination'
+import { paginate } from '../utils/tableTools'
 
 export default function AlertsPage() {
   const { user } = useAuthStore()
@@ -14,6 +16,9 @@ export default function AlertsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [resolveAlert, setResolveAlert] = useState<LowStockAlert | null>(null)
+  const [openPage, setOpenPage] = useState(1)
+  const [resolvedPage, setResolvedPage] = useState(1)
+  const [complaintPage, setComplaintPage] = useState(1)
   const complaintForm = useForm<any>({ defaultValues: { priority: 'medium', complaint_type: 'Product shortage' } })
   const resolveForm = useForm<{ message: string }>()
 
@@ -83,6 +88,9 @@ export default function AlertsPage() {
 
   const openAlerts = alerts.filter(a => a.status === 'open')
   const resolvedAlerts = alerts.filter(a => a.status === 'resolved')
+  const openRows = paginate(openAlerts, openPage, 3)
+  const resolvedRows = paginate(resolvedAlerts, resolvedPage, 3)
+  const complaintRows = paginate(complaints, complaintPage, 5)
 
   return (
     <div className="space-y-5">
@@ -114,7 +122,7 @@ export default function AlertsPage() {
               <CheckCircle2 size={28} className="mx-auto mb-3 opacity-40" />
               <p className="text-sm">No open alerts</p>
             </div>
-          ) : openAlerts.map(alert => (
+          ) : openRows.pageItems.map(alert => (
             <div key={alert.id} className="px-4 py-4 flex items-start gap-4">
               <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <AlertTriangle size={15} className="text-amber-500" />
@@ -148,6 +156,7 @@ export default function AlertsPage() {
             </div>
           ))}
         </div>
+        <Pagination page={openRows.safePage} totalPages={openRows.totalPages} totalItems={openAlerts.length} pageSize={3} onPageChange={setOpenPage} />
       </div>
 
       {/* Resolved alerts (collapsed) */}
@@ -158,7 +167,7 @@ export default function AlertsPage() {
             <h2 className="text-sm font-semibold text-slate-900">Resolved ({resolvedAlerts.length})</h2>
           </div>
           <div className="divide-y divide-slate-100">
-            {resolvedAlerts.slice(0, 5).map(alert => (
+            {resolvedRows.pageItems.map(alert => (
               <div key={alert.id} className="px-4 py-3 flex items-center gap-4 opacity-60">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-700">{alert.product?.product_name}</div>
@@ -170,6 +179,7 @@ export default function AlertsPage() {
               </div>
             ))}
           </div>
+          <Pagination page={resolvedRows.safePage} totalPages={resolvedRows.totalPages} totalItems={resolvedAlerts.length} pageSize={3} onPageChange={setResolvedPage} />
         </div>
       )}
 
@@ -185,7 +195,7 @@ export default function AlertsPage() {
               <option value="">No specific product</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.product_name}</option>)}
             </select>
-            <select {...complaintForm.register('complaint_type', { required: true })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            <select {...complaintForm.register('complaint_type', { required: 'Complaint type is mandatory' })} className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
               <option>Product shortage</option>
               <option>Damaged products</option>
               <option>Supply issue</option>
@@ -196,8 +206,9 @@ export default function AlertsPage() {
               <option value="medium">Medium priority</option>
               <option value="high">High priority</option>
             </select>
-            <textarea {...complaintForm.register('description', { required: true })} placeholder="Describe the issue..." rows={3}
+            <textarea {...complaintForm.register('description', { required: 'Description is mandatory' })} placeholder="Describe the issue..." rows={3}
               className="sm:col-span-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none" />
+            {complaintForm.formState.errors.description && <p className="sm:col-span-2 text-xs text-red-500 -mt-2">{String(complaintForm.formState.errors.description.message)}</p>}
             <button className="sm:col-span-2 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors">
               Submit Complaint
             </button>
@@ -214,7 +225,7 @@ export default function AlertsPage() {
         <div className="divide-y divide-slate-100">
           {complaints.length === 0 ? (
             <div className="py-10 text-center text-sm text-slate-400">No complaints</div>
-          ) : complaints.map(complaint => (
+          ) : complaintRows.pageItems.map(complaint => (
             <div key={complaint.id} className="px-4 py-4 flex items-start gap-4">
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-950">{complaint.complaint_type}</div>
@@ -246,6 +257,7 @@ export default function AlertsPage() {
             </div>
           ))}
         </div>
+        <Pagination page={complaintRows.safePage} totalPages={complaintRows.totalPages} totalItems={complaints.length} pageSize={5} onPageChange={setComplaintPage} />
       </div>
 
       {/* Resolve modal */}
@@ -267,10 +279,11 @@ export default function AlertsPage() {
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Message to inventory manager <span className="text-slate-400">(they will receive this as a notification)</span>
                 </label>
-                <textarea {...resolveForm.register('message', { required: true })}
+                <textarea {...resolveForm.register('message', { required: 'Message is mandatory' })}
                   placeholder="e.g. Restocking 200 units dispatched from warehouse, expected delivery in 2 days."
                   rows={3}
                   className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500 resize-none" />
+                {resolveForm.formState.errors.message && <p className="text-xs text-red-500 mt-1">{String(resolveForm.formState.errors.message.message)}</p>}
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setResolveAlert(null)}
