@@ -4,12 +4,27 @@ from sqlalchemy import or_, and_
 from typing import Optional, List
 from uuid import UUID
 import math
+from datetime import datetime
 from app.database.session import get_db
 from app.schemas.schemas import ProductCreate, ProductUpdate, ProductResponse, PaginatedProducts
 from app.models.models import Complaint, InventoryTransaction, LowStockAlert, Notification, Product, StoreInventory, TransactionType, User, UserRole
 from app.dependencies.auth import get_current_user, require_retailer_admin, get_tenant_filter
 
 router = APIRouter()
+
+
+def resolve_low_stock_if_replenished(db: Session, stock: StoreInventory):
+    if stock.quantity <= stock.low_stock_threshold:
+        return
+    open_alerts = db.query(LowStockAlert).filter(
+        LowStockAlert.product_id == stock.product_id,
+        LowStockAlert.store_id == stock.store_id,
+        LowStockAlert.status == "open",
+    ).all()
+    for alert in open_alerts:
+        alert.status = "resolved"
+        alert.remaining_quantity = stock.quantity
+        alert.resolved_at = datetime.utcnow()
 
 
 @router.get("", response_model=PaginatedProducts)
@@ -34,7 +49,7 @@ def list_products(
     if current_user.role == UserRole.INVENTORY_MANAGER:
         q = q.join(StoreInventory, StoreInventory.product_id == Product.id).filter(StoreInventory.store_id == current_user.store_id)
     if search:
-        q = q.filter(or_(Product.product_name.ilike(f"%{search}%"), Product.sku.ilike(f"%{search}%")))
+        q = q.filter(or_(Product.product_name.ilike(f"%{search}%"), Product.sku.op("LIKE")(f"%{search}%")))
     if category:
         q = q.filter(Product.category == category)
     if brand:
@@ -147,11 +162,26 @@ def update_product(product_id: UUID, payload: ProductUpdate, db: Session = Depen
                         entity_type="low_stock_alert",
                         entity_id=alert.id,
                     ))
+        else:
+            resolve_low_stock_if_replenished(db, stock)
         db.commit()
         db.refresh(product)
         return product
+    previous_quantity = product.quantity
     for k, v in updates.items():
         setattr(product, k, v)
+    if "quantity" in updates and updates["quantity"] is not None and updates["quantity"] != previous_quantity:
+        quantity_delta = updates["quantity"] - previous_quantity
+        transaction_type = TransactionType.STOCK_IN if quantity_delta > 0 else TransactionType.STOCK_OUT
+        db.add(InventoryTransaction(
+            tenant_id=product.tenant_id,
+            product_id=product.id,
+            store_id=None,
+            transaction_type=transaction_type,
+            quantity=abs(quantity_delta),
+            updated_by=current_user.id,
+            notes=f"Warehouse quantity updated from {previous_quantity} to {updates['quantity']}",
+        ))
     db.commit()
     db.refresh(product)
     return product

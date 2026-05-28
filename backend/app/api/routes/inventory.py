@@ -2,12 +2,27 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime
 from app.database.session import get_db
 from app.schemas.schemas import AddWarehouseStock, StoreInventoryAssign, StoreInventoryResponse, TransactionCreate, TransactionResponse, DashboardStats, AdminStats
 from app.models.models import InventoryTransaction, LowStockAlert, Notification, Product, Store, StoreInventory, User, UserRole, TransactionType, Tenant, TenantStatus
 from app.dependencies.auth import get_current_user, get_tenant_filter
 
 router = APIRouter()
+
+
+def resolve_low_stock_if_replenished(db: Session, store_stock: StoreInventory):
+    if store_stock.quantity <= store_stock.low_stock_threshold:
+        return
+    open_alerts = db.query(LowStockAlert).filter(
+        LowStockAlert.product_id == store_stock.product_id,
+        LowStockAlert.store_id == store_stock.store_id,
+        LowStockAlert.status == "open",
+    ).all()
+    for alert in open_alerts:
+        alert.status = "resolved"
+        alert.remaining_quantity = store_stock.quantity
+        alert.resolved_at = datetime.utcnow()
 
 
 @router.post("/transactions", response_model=TransactionResponse, status_code=201)
@@ -81,6 +96,8 @@ def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)
                     entity_type="low_stock_alert",
                     entity_id=alert.id,
                 ))
+    else:
+        resolve_low_stock_if_replenished(db, store_stock)
     db.commit()
     db.refresh(txn)
     return db.query(InventoryTransaction).options(
@@ -187,6 +204,7 @@ def assign_store_inventory(
         updated_by=current_user.id,
         notes=f"Warehouse → {store.name} ({store.location}): +{payload.quantity} units",
     ))
+    resolve_low_stock_if_replenished(db, item)
     db.commit()
     db.refresh(item)
     return db.query(StoreInventory).options(
@@ -213,6 +231,15 @@ def add_warehouse_stock(
     if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
     product.quantity += payload.quantity
+    db.add(InventoryTransaction(
+        tenant_id=product.tenant_id,
+        product_id=product.id,
+        store_id=None,
+        transaction_type=TransactionType.STOCK_IN,
+        quantity=payload.quantity,
+        updated_by=current_user.id,
+        notes=f"Warehouse stock replenished: +{payload.quantity} units",
+    ))
     db.commit()
     db.refresh(product)
     return {"product_id": str(product.id), "new_warehouse_quantity": product.quantity}
@@ -238,11 +265,24 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         stock_q = stock_q.filter(StoreInventory.store_id == current_user.store_id)
     stock_items = stock_q.all()
     total_value = sum(item.product.price * item.quantity for item in stock_items)
-    low_stock = sum(1 for item in stock_items if item.quantity <= item.low_stock_threshold)
+    alert_q = db.query(LowStockAlert).filter(LowStockAlert.status == "open")
+    if f:
+        alert_q = alert_q.filter(LowStockAlert.tenant_id == f["tenant_id"])
+    if current_user.role == UserRole.INVENTORY_MANAGER:
+        alert_q = alert_q.filter(LowStockAlert.store_id == current_user.store_id)
+    low_stock = alert_q.count()
+    store_q = db.query(Store)
+    if current_user.role == UserRole.SUPER_ADMIN:
+        pass
+    elif current_user.role == UserRole.INVENTORY_MANAGER:
+        store_q = store_q.filter(Store.id == current_user.store_id)
+    else:
+        store_q = store_q.filter(Store.tenant_id == current_user.tenant_id)
     recent = tq.options(joinedload(InventoryTransaction.product), joinedload(InventoryTransaction.updated_by_user)).order_by(InventoryTransaction.timestamp.desc()).limit(10).all()
 
     return DashboardStats(
         total_products=len(products),
+        total_stores=store_q.count(),
         low_stock_count=low_stock,
         total_transactions=tq.count(),
         total_value=total_value,
@@ -256,6 +296,7 @@ def get_admin_stats(db: Session = Depends(get_db), current_user: User = Depends(
         raise HTTPException(status_code=403, detail="Super admin only")
     return AdminStats(
         total_tenants=db.query(Tenant).count(),
+        total_stores=db.query(Store).count(),
         total_products=db.query(Product).count(),
         active_users=db.query(User).filter(User.is_active == True).count(),
         total_transactions=db.query(InventoryTransaction).count(),

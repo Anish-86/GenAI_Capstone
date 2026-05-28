@@ -280,6 +280,15 @@ class NotificationResponse(BaseModel):
         from_attributes = True
 
 
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    facts: dict = {}
+
+
 class ComplaintCreate(BaseModel):
     product_id: Optional[UUID] = None
     complaint_type: str
@@ -315,6 +324,7 @@ class ComplaintResponse(BaseModel):
 
 class DashboardStats(BaseModel):
     total_products: int
+    total_stores: int
     low_stock_count: int
     total_transactions: int
     total_value: float
@@ -323,6 +333,7 @@ class DashboardStats(BaseModel):
 
 class AdminStats(BaseModel):
     total_tenants: int
+    total_stores: int = 0
     total_products: int
     active_users: int
     total_transactions: int

@@ -107,7 +107,7 @@ export default function LoginPage() {
               </div>
               <span className="font-bold text-slate-950">InventIQ</span>
             </div>
-            <h2 className="text-3xl font-black text-slate-950 mb-2">Welcome back</h2>
+            <h2 className="text-4xl font-bold text-slate-950 mb-2">Welcome back</h2>
             <p className="text-slate-500">Enter your credentials to access your workspace</p>
           </div>
 

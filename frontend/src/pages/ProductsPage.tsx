@@ -15,6 +15,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const debouncedSearch = useDebounce(search, 350)
   const [showModal, setShowModal] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
@@ -30,10 +32,10 @@ export default function ProductsPage() {
   const assignStoreId = assignForm.watch('store_id')
   const existingStoreStock = storeInventory.find(item => item.product_id === assignProductId && item.store_id === assignStoreId)
 
-  const load = async (pg = page, q = search) => {
+  const load = async (pg = page, q = search, selectedCategory = category) => {
     setLoading(true)
     try {
-      const { data: res } = await productService.list({ page: pg, search: q || undefined, page_size: 15 })
+      const { data: res } = await productService.list({ page: pg, search: q || undefined, category: selectedCategory || undefined, page_size: 10 })
       setData(res)
     } catch {
       toast.error('Failed to load products')
@@ -42,7 +44,12 @@ export default function ProductsPage() {
     }
   }
 
-  useEffect(() => { load(page, debouncedSearch) }, [page, debouncedSearch])
+  useEffect(() => { load(page, debouncedSearch, category) }, [page, debouncedSearch, category])
+  useEffect(() => {
+    productService.list({ page_size: 500 })
+      .then(({ data }) => setCategories(Array.from(new Set((data.items || []).map((p: Product) => p.category).filter(Boolean))) as string[]))
+      .catch(() => setCategories([]))
+  }, [])
   useEffect(() => {
     if (user?.role === 'retailer_admin') {
       storeService.list().then(({ data }) => setStores(data)).catch(() => setStores([]))
@@ -59,7 +66,7 @@ export default function ProductsPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    load(1, search)
+    load(1, search, category)
   }
 
   const openCreate = () => { reset({}); setEditProduct(null); setShowModal(true) }
@@ -166,7 +173,7 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-950">Products</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Products</h1>
           <p className="text-slate-500 text-sm mt-0.5">{data?.total ?? 0} products in inventory</p>
         </div>
         {user?.role === 'retailer_admin' && (
@@ -217,7 +224,7 @@ export default function ProductsPage() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <form onSubmit={handleSearch} className="flex-1 relative max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
@@ -227,9 +234,17 @@ export default function ProductsPage() {
             className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
           />
         </form>
-        <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:text-slate-950 hover:border-slate-300 transition-all">
-          <Filter size={14} /> Filters
-        </button>
+        <div className="relative w-full sm:w-56">
+          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <select
+            value={category}
+            onChange={e => { setCategory(e.target.value); setPage(1) }}
+            className="w-full appearance-none bg-white border border-slate-200 rounded-lg pl-8 pr-4 py-2 text-sm text-slate-700 focus:outline-none focus:border-teal-500 transition-colors"
+          >
+            <option value="">All categories</option>
+            {categories.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -253,6 +268,8 @@ export default function ProductsPage() {
                   ))}
                 </tr>
               ))
+            ) : data?.items.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-14 text-center text-sm text-slate-400">No products found</td></tr>
             ) : data?.items.map(product => (
               <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="px-4 py-3.5">

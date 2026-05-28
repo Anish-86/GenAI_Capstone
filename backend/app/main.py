@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.routes import alerts, auth, complaints, tenants, products, inventory, notifications, stores, users
+from app.api.routes import alerts, assistant, auth, complaints, tenants, products, inventory, notifications, stores, users
 from app.database.session import engine
 from app.models import base
 from app.core.config import settings
@@ -55,6 +55,7 @@ app.include_router(stores.router, prefix="/stores", tags=["Stores"])
 app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
 app.include_router(complaints.router, prefix="/complaints", tags=["Complaints"])
 app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 
 
 @app.get("/health", tags=["Health"])

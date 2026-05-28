@@ -66,6 +66,17 @@ def create_alert(
     if not store_id:
         raise HTTPException(status_code=400, detail="Store is required")
     stock = db.query(StoreInventory).filter(StoreInventory.product_id == product.id, StoreInventory.store_id == store_id).first()
+    existing_open_alert = db.query(LowStockAlert).options(
+        joinedload(LowStockAlert.product),
+        joinedload(LowStockAlert.store),
+        joinedload(LowStockAlert.raised_by_user),
+    ).filter(
+        LowStockAlert.product_id == product.id,
+        LowStockAlert.store_id == store_id,
+        LowStockAlert.status == "open",
+    ).first()
+    if existing_open_alert:
+        return existing_open_alert
 
     alert = LowStockAlert(
         tenant_id=product.tenant_id,

@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
+from datetime import datetime, timedelta
 from app.database.session import get_db
 from app.schemas.schemas import NotificationResponse
 from app.models.models import Notification, User
@@ -22,7 +23,10 @@ def notification_query(db: Session, current_user: User):
 
 @router.get("", response_model=List[NotificationResponse])
 def list_notifications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return notification_query(db, current_user).order_by(Notification.created_at.desc()).limit(25).all()
+    cutoff = datetime.utcnow() - timedelta(hours=10)
+    return notification_query(db, current_user).filter(
+        Notification.created_at >= cutoff
+    ).order_by(Notification.created_at.desc()).limit(50).all()
 
 
 @router.get("/unread-count")
@@ -38,6 +42,13 @@ def mark_all_read(db: Session = Depends(get_db), current_user: User = Depends(ge
     )
     db.commit()
     return {"marked": True}
+
+
+@router.delete("/clear-all")
+def clear_all_notifications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    db.query(Notification).filter(Notification.recipient_id == current_user.id).delete(synchronize_session=False)
+    db.commit()
+    return {"cleared": True}
 
 
 @router.post("/{notification_id}/read", response_model=NotificationResponse)

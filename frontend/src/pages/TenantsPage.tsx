@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Building2, Plus, X, Trash2, CheckCircle2, XCircle, Clock, Power, RotateCcw } from 'lucide-react'
+import { Building2, Plus, X, Trash2, CheckCircle2, XCircle, Clock, Power, RotateCcw, Search } from 'lucide-react'
 import { tenantService } from '../services/api'
 import { Link } from 'react-router-dom'
 import type { Tenant, TenantOverview } from '../types'
 import { format } from 'date-fns'
 import { requiredEmail, requiredPassword, requiredText } from '../utils/validation'
+import Pagination from '../components/common/Pagination'
+import { paginate } from '../utils/tableTools'
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   active: { label: 'Active', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-500/20', icon: CheckCircle2 },
@@ -18,6 +20,15 @@ export default function TenantsPage() {
   const [tenants, setTenants] = useState<TenantOverview[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string
+    message: string
+    confirmLabel: string
+    tone: 'red' | 'teal'
+    onConfirm: () => Promise<void>
+  } | null>(null)
   const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm<any>()
 
   const load = async () => {
@@ -73,8 +84,7 @@ export default function TenantsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this tenant permanently? All inventory managers, retailer admins, products, transactions, alerts, and notifications under this tenant will be deleted. This cannot be undone.')) return
+  const runDelete = async (id: string) => {
     try {
       await tenantService.delete(id)
       toast.success('Tenant deleted')
@@ -82,9 +92,7 @@ export default function TenantsPage() {
     } catch { toast.error('Failed to delete') }
   }
 
-  const updateStatus = async (tenant: Tenant, status: string) => {
-    if (status !== 'active' && !confirm('Deactivate this tenant? All inventory managers under this tenant will lose access, and all products and inventory actions for this tenant will be on hold until it is reactivated.')) return
-    if (status === 'active' && !confirm('Reactivate this tenant? Users under this tenant will regain access to their inventory workspace.')) return
+  const runStatusUpdate = async (tenant: Tenant, status: string) => {
     try {
       await tenantService.update(tenant.id, { status })
       toast.success(`Tenant ${status}`)
@@ -94,17 +102,52 @@ export default function TenantsPage() {
     }
   }
 
+  const confirmDelete = (tenant: TenantOverview) => setConfirmAction({
+    title: 'Delete tenant?',
+    message: 'All inventory managers, retailer admins, products, transactions, alerts, and notifications under this tenant will be deleted. This cannot be undone.',
+    confirmLabel: 'Delete tenant',
+    tone: 'red',
+    onConfirm: () => runDelete(tenant.id),
+  })
+
+  const confirmStatus = (tenant: TenantOverview, status: string) => setConfirmAction({
+    title: status === 'active' ? 'Reactivate tenant?' : 'Deactivate tenant?',
+    message: status === 'active'
+      ? 'Users under this tenant will regain access to their inventory workspace.'
+      : 'All inventory managers under this tenant will lose access, and products and inventory actions will be on hold until reactivated.',
+    confirmLabel: status === 'active' ? 'Reactivate' : 'Deactivate',
+    tone: status === 'active' ? 'teal' : 'red',
+    onConfirm: () => runStatusUpdate(tenant, status),
+  })
+
+  const filteredTenants = tenants.filter(tenant => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return tenant.company_name.toLowerCase().includes(q) || tenant.contact_email.toLowerCase().includes(q)
+  })
+  const tenantRows = paginate(filteredTenants, page, 12)
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-950">Tenants</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{tenants.length} organizations</p>
+          <h1 className="text-2xl font-semibold text-slate-950">Tenants</h1>
+          <p className="text-slate-500 text-sm mt-1">{filteredTenants.length} organizations</p>
         </div>
         <button onClick={() => { reset(); setShowModal(true) }}
           className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium text-white transition-colors">
           <Plus size={15} /> New Tenant
         </button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Search tenants by name or email..."
+          className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+        />
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -115,12 +158,13 @@ export default function TenantsPage() {
               <div className="h-3.5 w-48 bg-slate-100/80 rounded animate-pulse" />
             </div>
           ))
-        ) : tenants.map(tenant => {
+        ) : tenantRows.pageItems.map(tenant => {
           const scfg = statusConfig[tenant.status]
           const SIcon = scfg?.icon || CheckCircle2
           const initial = tenant.company_name[0].toUpperCase()
+          const borderTone = tenant.status === 'active' ? 'border-emerald-300 hover:border-emerald-400' : 'border-red-300 hover:border-red-400'
           return (
-            <div key={tenant.id} className="bg-white border border-slate-200 rounded-lg p-5 hover:border-slate-300 transition-colors group">
+            <div key={tenant.id} className={`bg-white border rounded-lg p-5 transition-colors group ${borderTone}`}>
               <div className="flex items-start justify-between mb-4">
                 <Link to={`/tenants/${tenant.id}`} className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500/20 to-indigo-500/20 border border-teal-500/20 flex items-center justify-center text-sm font-bold text-teal-600">
@@ -132,12 +176,12 @@ export default function TenantsPage() {
                   </div>
                 </Link>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => updateStatus(tenant, tenant.status === 'active' ? 'inactive' : 'active')}
+                  <button onClick={() => confirmStatus(tenant, tenant.status === 'active' ? 'inactive' : 'active')}
                     className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-950 transition-all"
                     title={tenant.status === 'active' ? 'Deactivate tenant' : 'Reactivate tenant'}>
                     {tenant.status === 'active' ? <Power size={13} /> : <RotateCcw size={13} />}
                   </button>
-                  <button onClick={() => handleDelete(tenant.id)}
+                  <button onClick={() => confirmDelete(tenant)}
                     className="p-1.5 hover:bg-red-500/10 rounded-lg text-slate-600 hover:text-red-400 transition-all"
                     title="Delete tenant">
                     <Trash2 size={13} />
@@ -167,6 +211,7 @@ export default function TenantsPage() {
           )
         })}
       </div>
+      <Pagination page={tenantRows.safePage} totalPages={tenantRows.totalPages} totalItems={filteredTenants.length} pageSize={12} onPageChange={setPage} />
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/35 z-50 flex items-center justify-center p-4">
@@ -224,6 +269,31 @@ export default function TenantsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-slate-900/35 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-2xl">
+            <div className="p-6">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${confirmAction.tone === 'red' ? 'bg-red-50 text-red-500' : 'bg-teal-50 text-teal-600'}`}>
+                {confirmAction.tone === 'red' ? <Trash2 size={20} /> : <RotateCcw size={20} />}
+              </div>
+              <h2 className="text-xl font-bold text-slate-950">{confirmAction.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{confirmAction.message}</p>
+              <div className="mt-6 flex gap-3">
+                <button onClick={() => setConfirmAction(null)} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:text-slate-950">Cancel</button>
+                <button
+                  onClick={async () => {
+                    await confirmAction.onConfirm()
+                    setConfirmAction(null)
+                  }}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-white ${confirmAction.tone === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-teal-600 hover:bg-teal-700'}`}
+                >
+                  {confirmAction.confirmLabel}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

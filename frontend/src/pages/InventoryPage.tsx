@@ -119,7 +119,7 @@ export default function InventoryPage() {
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-950">My Store Inventory</h1>
+            <h1 className="text-2xl font-semibold text-slate-950">My Store Inventory</h1>
             <p className="text-slate-500 text-sm mt-0.5">Products assigned to your store</p>
           </div>
           <button onClick={() => { reset(); setShowModal(true) }}
@@ -237,7 +237,7 @@ export default function InventoryPage() {
               )
             })}
             {filtered.length === 0 && !loading && (
-              <div className="py-10 text-center text-sm text-slate-400">No transactions yet</div>
+              <div className="py-10 text-center text-sm text-slate-400">No recent activity</div>
             )}
           </div>
           <Pagination page={pagedTransactions.safePage} totalPages={pagedTransactions.totalPages} totalItems={filtered.length} pageSize={10} onPageChange={setTxnPage} />
@@ -254,7 +254,7 @@ export default function InventoryPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-950">Inventory</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Inventory</h1>
           <p className="text-slate-500 text-sm mt-0.5">Warehouse stock and all transactions</p>
         </div>
         <button onClick={() => { reset(); setShowModal(true) }}
@@ -358,7 +358,7 @@ export default function InventoryPage() {
               </div>
             ))
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-slate-400"><SlidersHorizontal size={28} className="mx-auto mb-3 opacity-30" /><p className="text-sm">No transactions</p></div>
+            <div className="text-center py-16 text-slate-400"><SlidersHorizontal size={28} className="mx-auto mb-3 opacity-30" /><p className="text-sm">No recent activity</p></div>
           ) : pagedTransactions.pageItems.map(txn => {
             const cfg = typeConfig[txn.transaction_type]
             const Icon = cfg?.icon || SlidersHorizontal

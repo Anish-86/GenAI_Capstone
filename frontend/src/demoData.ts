@@ -201,6 +201,7 @@ export const demoPaginatedProducts: PaginatedProducts = {
 
 export const demoDashboardStats: DashboardStats = {
   total_products: demoProducts.length,
+  total_stores: 3,
   low_stock_count: demoProducts.filter((product) => product.quantity <= 10).length,
   total_transactions: demoTransactions.length,
   total_value: demoProducts.reduce((sum, product) => sum + product.quantity * product.price, 0),
@@ -209,6 +210,7 @@ export const demoDashboardStats: DashboardStats = {
 
 export const demoAdminStats: AdminStats = {
   total_tenants: demoTenants.length,
+  total_stores: 6,
   total_products: demoProducts.length,
   active_users: demoUsers.filter((user) => user.is_active).length,
   total_transactions: demoTransactions.length,
