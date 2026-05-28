@@ -138,6 +138,7 @@ export interface InventoryTransaction {
 
 export interface DashboardStats {
   total_products: number
+  total_stores: number
   low_stock_count: number
   total_transactions: number
   total_value: number
@@ -146,6 +147,7 @@ export interface DashboardStats {
 
 export interface AdminStats {
   total_tenants: number
+  total_stores: number
   total_products: number
   active_users: number
   total_transactions: number

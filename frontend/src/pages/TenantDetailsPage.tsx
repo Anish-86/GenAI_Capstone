@@ -27,6 +27,9 @@ export default function TenantDetailsPage() {
   const [activityPage, setActivityPage] = useState(1)
   const [alertPage, setAlertPage] = useState(1)
   const [complaintPage, setComplaintPage] = useState(1)
+  const [storePage, setStorePage] = useState(1)
+  const [adminPage, setAdminPage] = useState(1)
+  const [managerPage, setManagerPage] = useState(1)
   const adminForm = useForm<any>({ defaultValues: { role: 'retailer_admin' } })
   const managerForm = useForm<any>({ defaultValues: { role: 'inventory_manager' } })
   const storeForm = useForm<any>()
@@ -126,7 +129,7 @@ export default function TenantDetailsPage() {
     <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
         <Icon size={16} className="text-teal-600" />
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-base font-bold text-slate-900">{title}</h2>
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -157,6 +160,9 @@ export default function TenantDetailsPage() {
   const activity = paginate(transactions, activityPage, 5)
   const alertRows = paginate(alerts, alertPage, 5)
   const complaintRows = paginate(complaints, complaintPage, 5)
+  const storeRows = paginate(stores, storePage, 4)
+  const adminRows = paginate(admins, adminPage, 2)
+  const managerRows = paginate(managers, managerPage, 2)
 
   if (loading) return <div className="text-sm text-slate-500">Loading tenant...</div>
 
@@ -165,7 +171,7 @@ export default function TenantDetailsPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link to="/tenants" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mb-2"><ArrowLeft size={14} /> Tenants</Link>
-          <h1 className="text-xl font-semibold text-slate-950">{tenant?.company_name}</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{tenant?.company_name}</h1>
           <p className="text-sm text-slate-500">{tenant?.contact_email}</p>
         </div>
         <span className="text-xs px-2 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-100">{tenant?.status}</span>
@@ -188,9 +194,34 @@ export default function TenantDetailsPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5">
-        <Section title="Retailer Admins" icon={Building2}>
+        <Section title="Stores" icon={MapPin}>
           <div className="mb-4 flex justify-end">
-            <button onClick={() => setCreatePanel(createPanel === 'admin' ? null : 'admin')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE</button>
+            <button onClick={() => setCreatePanel(createPanel === 'store' ? null : 'store')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE STORE</button>
+          </div>
+          {createPanel === 'store' && (
+            <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div><input {...storeForm.register('name', { required: 'Store name is mandatory' })} placeholder="Store name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="name" /></div>
+              <div><input {...storeForm.register('location', { required: 'Location is mandatory' })} placeholder="Location" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="location" /></div>
+              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Store</button>
+            </form>
+          )}
+          <div className="grid sm:grid-cols-2 gap-3">
+            {storeRows.pageItems.map(store => (
+              <div key={store.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-semibold text-slate-900">{store.name}</div>
+                <div className="text-xs text-slate-500 mt-1">{store.location}</div>
+                <span className={`mt-3 inline-flex text-xs px-2 py-0.5 rounded-full border ${store.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{store.status}</span>
+              </div>
+            ))}
+            {stores.length === 0 && <div className="sm:col-span-2 py-8 text-center text-sm text-slate-400">No stores</div>}
+          </div>
+          <Pagination page={storeRows.safePage} totalPages={storeRows.totalPages} totalItems={stores.length} pageSize={4} onPageChange={setStorePage} />
+        </Section>
+
+        <Section title="Retailer Admins & Inventory Managers" icon={Building2}>
+          <div className="mb-4 flex justify-end gap-2">
+            <button onClick={() => setCreatePanel(createPanel === 'admin' ? null : 'admin')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE ADMIN</button>
+            <button onClick={() => setCreatePanel(createPanel === 'manager' ? null : 'manager')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE MANAGER</button>
           </div>
           {createPanel === 'admin' && (
             <form onSubmit={adminForm.handleSubmit(data => createUser(data, 'retailer_admin'))} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -198,22 +229,7 @@ export default function TenantDetailsPage() {
               <div><input {...adminForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="email" /></div>
               <div><input {...adminForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="phone" /></div>
               <div><input {...adminForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="password" /></div>
-              <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Retailer Admin</button>
-            </form>
-          )}
-          <UserRows users={admins} />
-        </Section>
-
-        <Section title="Stores & Inventory Managers" icon={MapPin}>
-          <div className="mb-4 flex justify-end gap-2">
-            <button onClick={() => setCreatePanel(createPanel === 'store' ? null : 'store')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE STORE</button>
-            <button onClick={() => setCreatePanel(createPanel === 'manager' ? null : 'manager')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE MANAGER</button>
-          </div>
-          {createPanel === 'store' && (
-            <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div><input {...storeForm.register('name', { required: 'Store name is mandatory' })} placeholder="Store name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="name" /></div>
-              <div><input {...storeForm.register('location', { required: 'Location is mandatory' })} placeholder="Location" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="location" /></div>
-              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Store</button>
+              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Retailer Admin</button>
             </form>
           )}
           {createPanel === 'manager' && (
@@ -229,7 +245,18 @@ export default function TenantDetailsPage() {
               <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Inventory Manager</button>
             </form>
           )}
-          <UserRows users={managers} />
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-slate-100">
+              <div className="px-3 py-2 border-b border-slate-100 text-xs font-bold uppercase text-slate-500">Retailer Admins</div>
+              <UserRows users={adminRows.pageItems} />
+              <Pagination page={adminRows.safePage} totalPages={adminRows.totalPages} totalItems={admins.length} pageSize={2} onPageChange={setAdminPage} />
+            </div>
+            <div className="rounded-lg border border-slate-100">
+              <div className="px-3 py-2 border-b border-slate-100 text-xs font-bold uppercase text-slate-500">Inventory Managers</div>
+              <UserRows users={managerRows.pageItems} />
+              <Pagination page={managerRows.safePage} totalPages={managerRows.totalPages} totalItems={managers.length} pageSize={2} onPageChange={setManagerPage} />
+            </div>
+          </div>
         </Section>
 
         <Section title="Products & Store Distribution" icon={Package}>
@@ -268,7 +295,7 @@ export default function TenantDetailsPage() {
                 <div className="text-xs text-slate-500">{txn.transaction_type} {txn.quantity} units by {txn.updated_by_user?.name || 'Manager'} · {format(new Date(txn.timestamp), 'MMM d, HH:mm')}</div>
               </div>
             ))}
-            {transactions.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No activity yet</div>}
+            {transactions.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No recent activity</div>}
           </div>
           <Pagination page={activity.safePage} totalPages={activity.totalPages} totalItems={transactions.length} pageSize={5} onPageChange={setActivityPage} />
         </Section>
@@ -281,6 +308,7 @@ export default function TenantDetailsPage() {
                 <div className="text-xs text-slate-500">Remaining {alert.remaining_quantity ?? '-'} · {alert.status}</div>
               </div>
             ))}
+            {alerts.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No records</div>}
           </div>
           <Pagination page={alertRows.safePage} totalPages={alertRows.totalPages} totalItems={alerts.length} pageSize={5} onPageChange={setAlertPage} />
         </Section>
@@ -294,6 +322,7 @@ export default function TenantDetailsPage() {
                 <div className="text-xs text-slate-600 mt-1">{complaint.description}</div>
               </div>
             ))}
+            {complaints.length === 0 && <div className="py-8 text-center text-sm text-slate-400">No records</div>}
           </div>
           <Pagination page={complaintRows.safePage} totalPages={complaintRows.totalPages} totalItems={complaints.length} pageSize={5} onPageChange={setComplaintPage} />
         </Section>

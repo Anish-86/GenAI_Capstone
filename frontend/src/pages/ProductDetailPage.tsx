@@ -53,7 +53,7 @@ export default function ProductDetailPage() {
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-slate-950">{product.product_name}</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{product.product_name}</h1>
           <div className="text-xs font-mono text-slate-500 mt-0.5">SKU: {product.sku}</div>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function ProductDetailPage() {
         </div>
         <div className="divide-y divide-slate-100">
           {transactions.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">No transactions recorded</div>
+            <div className="text-center py-12 text-slate-400 text-sm">No recent activity</div>
           ) : transactions.map(txn => {
             const typeIcon = { stock_in: TrendingUp, stock_out: TrendingDown, adjustment: SlidersHorizontal }
             const Icon = typeIcon[txn.transaction_type] || Package

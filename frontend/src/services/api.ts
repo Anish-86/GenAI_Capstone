@@ -95,6 +95,7 @@ export const notificationService = {
   unreadCount: () => api.get('/notifications/unread-count'),
   markRead: (id: string) => api.post(`/notifications/${id}/read`),
   markAllRead: () => api.post('/notifications/mark-all-read'),
+  clearAll: () => api.delete('/notifications/clear-all'),
 }
 
 // ─── Complaints ──────────────────────────────────────────────────────────────
@@ -102,6 +103,11 @@ export const complaintService = {
   list: () => api.get('/complaints'),
   create: (data: any) => api.post('/complaints', data),
   update: (id: string, data: any) => api.put(`/complaints/${id}`, data),
+}
+
+// ─── Assistant ───────────────────────────────────────────────────────────────
+export const assistantService = {
+  chat: (message: string) => api.post('/assistant/chat', { message }),
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────

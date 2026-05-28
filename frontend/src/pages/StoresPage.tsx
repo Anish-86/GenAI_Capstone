@@ -144,7 +144,7 @@ export default function StoresPage() {
             <ArrowLeft size={16} />
           </button>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-slate-950">{selected.name}</h1>
+            <h1 className="text-2xl font-semibold text-slate-950">{selected.name}</h1>
             <p className="text-sm text-slate-500">{selected.location}</p>
           </div>
           <span className={`text-xs px-2 py-1 rounded-full border ${selected.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
@@ -294,7 +294,7 @@ export default function StoresPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {recentHistory.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-400">No history in the last 24 hours</div>
+                <div className="py-12 text-center text-sm text-slate-400">No recent activity</div>
               ) : historyRows.pageItems.map(txn => {
                 const cfg = txnIcon[txn.transaction_type]
                 const Icon = cfg?.icon || Activity
@@ -351,7 +351,7 @@ export default function StoresPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-950">Stores</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Stores</h1>
           <p className="text-slate-500 text-sm mt-0.5">{stores.length} store locations</p>
         </div>
       </div>
