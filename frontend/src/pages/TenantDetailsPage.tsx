@@ -170,7 +170,7 @@ export default function TenantDetailsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/tenants" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mb-2"><ArrowLeft size={14} /> Tenants</Link>
+          <Link to="/app/tenants" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mb-2"><ArrowLeft size={14} /> Tenants</Link>
           <h1 className="text-2xl font-semibold text-slate-950">{tenant?.company_name}</h1>
           <p className="text-sm text-slate-500">{tenant?.contact_email}</p>
         </div>

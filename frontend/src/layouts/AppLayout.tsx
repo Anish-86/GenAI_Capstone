@@ -11,13 +11,13 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/tenants', icon: Building2, label: 'Tenants', roles: ['super_admin'] },
-  { to: '/products', icon: Package, label: 'Products', roles: ['retailer_admin', 'inventory_manager'] },
-  { to: '/inventory', icon: ArrowLeftRight, label: 'Inventory', roles: ['retailer_admin', 'inventory_manager'] },
-  { to: '/stores', icon: MapPin, label: 'Stores', roles: ['retailer_admin'] },
-  { to: '/alerts', icon: AlertTriangle, label: 'Low Stock', roles: ['retailer_admin', 'inventory_manager'] },
-  { to: '/users', icon: Users, label: 'Team', roles: ['retailer_admin'] },
+  { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/app/tenants', icon: Building2, label: 'Tenants', roles: ['super_admin'] },
+  { to: '/app/products', icon: Package, label: 'Products', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/app/inventory', icon: ArrowLeftRight, label: 'Inventory', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/app/stores', icon: MapPin, label: 'Stores', roles: ['retailer_admin'] },
+  { to: '/app/alerts', icon: AlertTriangle, label: 'Low Stock', roles: ['retailer_admin', 'inventory_manager'] },
+  { to: '/app/users', icon: Users, label: 'Team', roles: ['retailer_admin'] },
 ]
 
 export default function AppLayout() {
@@ -87,7 +87,7 @@ export default function AppLayout() {
     try { await notificationService.markRead(notification.id); loadNotifications() } catch {}
     setNotificationOpen(false)
     if (notification.entity_type === 'low_stock_alert' || notification.entity_type === 'complaint') {
-      navigate('/alerts')
+      navigate('/app/alerts')
     }
   }
 

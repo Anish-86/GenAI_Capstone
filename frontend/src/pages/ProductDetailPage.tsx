@@ -49,7 +49,7 @@ export default function ProductDetailPage() {
   return (
     <div className="space-y-5 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link to="/products" className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-950 transition-colors">
+        <Link to="/app/products" className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-950 transition-colors">
           <ArrowLeft size={18} />
         </Link>
         <div>
