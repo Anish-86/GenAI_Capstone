@@ -56,9 +56,16 @@ export default function InventoryPage() {
 
   const onSubmit = async (data: any) => {
     try {
+      // For inventory managers, always attach their store_id from their store inventory
+      // This handles cases where store_id may not be on the user JWT profile
+      const storeId = isManager && storeInventory.length > 0
+        ? storeInventory[0].store_id
+        : data.store_id
+
       await inventoryService.createTransaction({
         ...data,
         quantity: parseInt(data.quantity),
+        store_id: storeId || data.store_id,
       })
       toast.success('Transaction recorded')
       setShowModal(false)
@@ -243,7 +250,18 @@ export default function InventoryPage() {
           <Pagination page={pagedTransactions.safePage} totalPages={pagedTransactions.totalPages} totalItems={filtered.length} pageSize={10} onPageChange={setTxnPage} />
         </div>
 
-        {showModal && <TransactionModal products={storeInventory.map(i => i.product!).filter(Boolean)} onClose={() => setShowModal(false)} onSubmit={onSubmit} register={register} handleSubmit={handleSubmit} isSubmitting={isSubmitting} errors={errors} showStore={false} stores={[]} />}
+        {showModal && <TransactionModal
+          products={storeInventory.map(i => i.product!).filter(Boolean)}
+          storeInventory={storeInventory}
+          onClose={() => setShowModal(false)}
+          onSubmit={onSubmit}
+          register={register}
+          handleSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          errors={errors}
+          showStore={false}
+          stores={[]}
+        />}
         {downloadModal && <DownloadModal form={downloadForm} onClose={() => setDownloadModal(false)} onSubmit={exportTransactions} />}
       </div>
     )
@@ -391,11 +409,18 @@ export default function InventoryPage() {
   )
 }
 
-function TransactionModal({ products, onClose, onSubmit, register, handleSubmit, isSubmitting, showStore, stores, errors }: any) {
+function TransactionModal({ products, storeInventory = [], onClose, onSubmit, register, handleSubmit, isSubmitting, showStore, stores, errors, watch }: any) {
   const ErrorText = ({ name }: { name: string }) => errors?.[name] ? <p className="text-xs text-red-500 mt-1">{String(errors[name]?.message || 'This field is mandatory')}</p> : null
+
+  // Build a map of product_id → current store quantity for live feedback
+  const stockMap: Record<string, number> = {}
+  storeInventory.forEach((item: any) => {
+    if (item.product?.id) stockMap[item.product.id] = item.quantity
+  })
+
   return (
     <div className="fixed inset-0 bg-slate-900/35 z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md">
+      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-950">Record Transaction</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600"><X size={18} /></button>
@@ -406,7 +431,14 @@ function TransactionModal({ products, onClose, onSubmit, register, handleSubmit,
             <select {...register('product_id', { required: 'Product is mandatory' })}
               className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500">
               <option value="">Select product</option>
-              {products.map((p: Product) => <option key={p.id} value={p.id}>{p.product_name} (SKU: {p.sku})</option>)}
+              {products.map((p: Product) => {
+                const qty = stockMap[p.id]
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.product_name} (SKU: {p.sku}){qty !== undefined ? ` — ${qty} in store` : ''}
+                  </option>
+                )
+              })}
             </select>
             <ErrorText name="product_id" />
           </div>
@@ -422,13 +454,21 @@ function TransactionModal({ products, onClose, onSubmit, register, handleSubmit,
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Type</label>
-            <select {...register('transaction_type', { required: 'Transaction type is mandatory' })}
-              className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500">
-              <option value="stock_in">Stock In</option>
-              <option value="stock_out">Stock Out</option>
-              <option value="adjustment">Adjustment</option>
-            </select>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Transaction Type</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: 'stock_in', label: 'Stock In', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
+                { value: 'stock_out', label: 'Stock Out', color: 'border-red-400 bg-red-50 text-red-700' },
+                { value: 'adjustment', label: 'Adjustment', color: 'border-amber-400 bg-amber-50 text-amber-700' },
+              ].map(opt => (
+                <label key={opt.value} className="cursor-pointer">
+                  <input type="radio" value={opt.value} {...register('transaction_type', { required: true })} className="sr-only peer" />
+                  <div className={`text-center text-xs font-semibold py-2 rounded-lg border-2 border-slate-200 bg-slate-50 text-slate-500 peer-checked:${opt.color} transition-all`}>
+                    {opt.label}
+                  </div>
+                </label>
+              ))}
+            </div>
             <ErrorText name="transaction_type" />
           </div>
           <div>

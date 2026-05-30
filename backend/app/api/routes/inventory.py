@@ -35,8 +35,13 @@ def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=403, detail="Access denied")
 
     store_id = current_user.store_id if current_user.role == UserRole.INVENTORY_MANAGER else payload.store_id
+
+    # Fallback: if manager has no store_id on their user record, infer from payload or product's store inventory
+    if not store_id and payload.store_id:
+        store_id = payload.store_id
+
     if not store_id:
-        raise HTTPException(status_code=400, detail="Store is required for inventory movement")
+        raise HTTPException(status_code=400, detail="Store is required for inventory movement. Make sure your account is assigned to a store.")
     store_stock = db.query(StoreInventory).filter(
         StoreInventory.product_id == product.id,
         StoreInventory.store_id == store_id,

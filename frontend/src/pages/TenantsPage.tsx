@@ -166,7 +166,7 @@ export default function TenantsPage() {
           return (
             <div key={tenant.id} className={`bg-white border rounded-lg p-5 transition-colors group ${borderTone}`}>
               <div className="flex items-start justify-between mb-4">
-                <Link to={`/tenants/${tenant.id}`} className="flex items-center gap-3 min-w-0">
+                <Link to={`/app/tenants/${tenant.id}`} className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500/20 to-indigo-500/20 border border-teal-500/20 flex items-center justify-center text-sm font-bold text-teal-600">
                     {initial}
                   </div>

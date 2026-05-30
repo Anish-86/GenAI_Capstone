@@ -23,7 +23,7 @@ export default function LoginPage() {
       const { data: user } = await authService.profile(tokens.access_token)
       setAuth(user, tokens.access_token, tokens.refresh_token)
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Invalid credentials')
     } finally {

@@ -160,7 +160,7 @@ export default function TenantDetailsPage() {
   const activity = paginate(transactions, activityPage, 5)
   const alertRows = paginate(alerts, alertPage, 5)
   const complaintRows = paginate(complaints, complaintPage, 5)
-  const storeRows = paginate(stores, storePage, 4)
+  const storeRows = paginate(stores, storePage, 5)
   const adminRows = paginate(admins, adminPage, 2)
   const managerRows = paginate(managers, managerPage, 2)
 
@@ -170,7 +170,7 @@ export default function TenantDetailsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/tenants" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mb-2"><ArrowLeft size={14} /> Tenants</Link>
+          <Link to="/app/tenants" className="text-sm text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mb-2"><ArrowLeft size={14} /> Tenants</Link>
           <h1 className="text-2xl font-semibold text-slate-950">{tenant?.company_name}</h1>
           <p className="text-sm text-slate-500">{tenant?.contact_email}</p>
         </div>
@@ -193,72 +193,148 @@ export default function TenantDetailsPage() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5">
-        <Section title="Stores" icon={MapPin}>
-          <div className="mb-4 flex justify-end">
-            <button onClick={() => setCreatePanel(createPanel === 'store' ? null : 'store')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE STORE</button>
+      {/* Stores + People — side by side, equal total height */}
+      <div className="grid lg:grid-cols-2 gap-5 items-stretch">
+
+        {/* LEFT — Stores (stretches to match both right cards + gap) */}
+        <section className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col h-full">
+          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin size={16} className="text-teal-600" />
+              <h2 className="text-base font-bold text-slate-900">Stores</h2>
+              <span className="ml-1 text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{stores.length}</span>
+            </div>
+            <button
+              onClick={() => setCreatePanel(createPanel === 'store' ? null : 'store')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
+            >
+              <Plus size={13} />CREATE STORE
+            </button>
           </div>
+
           {createPanel === 'store' && (
-            <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div><input {...storeForm.register('name', { required: 'Store name is mandatory' })} placeholder="Store name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="name" /></div>
-              <div><input {...storeForm.register('location', { required: 'Location is mandatory' })} placeholder="Location" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="location" /></div>
-              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Store</button>
-            </form>
+            <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
+              <form onSubmit={storeForm.handleSubmit(createStore)} className="grid grid-cols-2 gap-3">
+                <div><input {...storeForm.register('name', { required: 'Store name is mandatory' })} placeholder="Store name" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="name" /></div>
+                <div><input {...storeForm.register('location', { required: 'Location is mandatory' })} placeholder="Location" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={storeForm} name="location" /></div>
+                <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold">Create Store</button>
+              </form>
+            </div>
           )}
-          <div className="grid sm:grid-cols-2 gap-3">
-            {storeRows.pageItems.map(store => (
-              <div key={store.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm font-semibold text-slate-900">{store.name}</div>
-                <div className="text-xs text-slate-500 mt-1">{store.location}</div>
-                <span className={`mt-3 inline-flex text-xs px-2 py-0.5 rounded-full border ${store.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{store.status}</span>
+
+          {/* Store rows — simple list, no cards */}
+          <div className="flex-1 divide-y divide-slate-100 px-5">
+            {stores.length === 0 && (
+              <div className="py-12 text-center text-sm text-slate-400">No stores yet</div>
+            )}
+            {storeRows.pageItems.map((store, i) => (
+              <div key={store.id} className="flex items-center gap-4 py-4">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">
+                  {i + 1 + (storeRows.safePage - 1) * 5}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 truncate">{store.name}</div>
+                  <div className="text-xs text-slate-500 truncate">{store.location}</div>
+                </div>
+                <span className={`flex-shrink-0 text-xs px-2.5 py-0.5 rounded-full font-medium border ${
+                  store.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>{store.status}</span>
               </div>
             ))}
-            {stores.length === 0 && <div className="sm:col-span-2 py-8 text-center text-sm text-slate-400">No stores</div>}
           </div>
-          <Pagination page={storeRows.safePage} totalPages={storeRows.totalPages} totalItems={stores.length} pageSize={4} onPageChange={setStorePage} />
-        </Section>
+          <Pagination page={storeRows.safePage} totalPages={storeRows.totalPages} totalItems={stores.length} pageSize={5} onPageChange={setStorePage} />
+        </section>
 
-        <Section title="Retailer Admins & Inventory Managers" icon={Building2}>
-          <div className="mb-4 flex justify-end gap-2">
-            <button onClick={() => setCreatePanel(createPanel === 'admin' ? null : 'admin')} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE ADMIN</button>
-            <button onClick={() => setCreatePanel(createPanel === 'manager' ? null : 'manager')} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium"><Plus size={14} className="inline mr-1" />CREATE MANAGER</button>
-          </div>
-          {createPanel === 'admin' && (
-            <form onSubmit={adminForm.handleSubmit(data => createUser(data, 'retailer_admin'))} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div><input {...adminForm.register('name', requiredText('Name'))} placeholder="Full name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="name" /></div>
-              <div><input {...adminForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="email" /></div>
-              <div><input {...adminForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="phone" /></div>
-              <div><input {...adminForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="password" /></div>
-              <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">Create Retailer Admin</button>
-            </form>
-          )}
-          {createPanel === 'manager' && (
-            <form onSubmit={managerForm.handleSubmit(data => createUser(data, 'inventory_manager'))} className="grid grid-cols-2 gap-3 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div><input {...managerForm.register('name', requiredText('Name'))} placeholder="Manager name" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="name" /></div>
-              <div><input {...managerForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="email" /></div>
-              <div><input {...managerForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="phone" /></div>
-              <div><input {...managerForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="password" /></div>
-              <div className="col-span-2"><select {...managerForm.register('store_id', { required: 'Store is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                <option value="">Select store location</option>
-                {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
-              </select><ErrorText form={managerForm} name="store_id" /></div>
-              <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Create Inventory Manager</button>
-            </form>
-          )}
-          <div className="grid lg:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-slate-100">
-              <div className="px-3 py-2 border-b border-slate-100 text-xs font-bold uppercase text-slate-500">Retailer Admins</div>
+        {/* RIGHT — Retailer Admins (top) + Inventory Managers (bottom) */}
+        <div className="flex flex-col gap-5 h-full">
+
+          {/* Retailer Admins card */}
+          <section className="bg-white border border-slate-200 rounded-lg overflow-hidden flex-1 flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 size={16} className="text-teal-600" />
+                <h2 className="text-base font-bold text-slate-900">Retailer Admins</h2>
+                <span className="ml-1 text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{admins.length}</span>
+              </div>
+              <button
+                onClick={() => setCreatePanel(createPanel === 'admin' ? null : 'admin')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
+              >
+                <Plus size={13} />CREATE ADMIN
+              </button>
+            </div>
+
+            {createPanel === 'admin' && (
+              <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                <form onSubmit={adminForm.handleSubmit(data => createUser(data, 'retailer_admin'))} className="grid grid-cols-2 gap-3">
+                  <div><input {...adminForm.register('name', requiredText('Name'))} placeholder="Full name" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="name" /></div>
+                  <div><input {...adminForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="email" /></div>
+                  <div><input {...adminForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="phone" /></div>
+                  <div><input {...adminForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={adminForm} name="password" /></div>
+                  <button className="col-span-2 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold">Create Retailer Admin</button>
+                </form>
+              </div>
+            )}
+
+            <div className="flex-1 divide-y divide-slate-100 px-5">
+              {adminRows.pageItems.length === 0 && (
+                <div className="py-10 text-center text-sm text-slate-400">No retailer admins yet</div>
+              )}
               <UserRows users={adminRows.pageItems} />
-              <Pagination page={adminRows.safePage} totalPages={adminRows.totalPages} totalItems={admins.length} pageSize={2} onPageChange={setAdminPage} />
             </div>
-            <div className="rounded-lg border border-slate-100">
-              <div className="px-3 py-2 border-b border-slate-100 text-xs font-bold uppercase text-slate-500">Inventory Managers</div>
-              <UserRows users={managerRows.pageItems} />
-              <Pagination page={managerRows.safePage} totalPages={managerRows.totalPages} totalItems={managers.length} pageSize={2} onPageChange={setManagerPage} />
-            </div>
-          </div>
-        </Section>
+            <Pagination page={adminRows.safePage} totalPages={adminRows.totalPages} totalItems={admins.length} pageSize={2} onPageChange={setAdminPage} />
+          </section>
 
+          {/* Inventory Managers card */}
+          <section className="bg-white border border-slate-200 rounded-lg overflow-hidden flex-1 flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 size={16} className="text-teal-600" />
+                <h2 className="text-base font-bold text-slate-900">Inventory Managers</h2>
+                <span className="ml-1 text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{managers.length}</span>
+              </div>
+              <button
+                onClick={() => setCreatePanel(createPanel === 'manager' ? null : 'manager')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 transition-colors"
+              >
+                <Plus size={13} />CREATE MANAGER
+              </button>
+            </div>
+
+            {createPanel === 'manager' && (
+              <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
+                <form onSubmit={managerForm.handleSubmit(data => createUser(data, 'inventory_manager'))} className="grid grid-cols-2 gap-3">
+                  <div><input {...managerForm.register('name', requiredText('Name'))} placeholder="Manager name" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="name" /></div>
+                  <div><input {...managerForm.register('email', requiredEmail)} placeholder="Email" type="email" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="email" /></div>
+                  <div><input {...managerForm.register('phone', optionalPhone)} placeholder="Phone" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="phone" /></div>
+                  <div><input {...managerForm.register('password', requiredPassword)} placeholder="Password" type="password" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" /><ErrorText form={managerForm} name="password" /></div>
+                  <div className="col-span-2">
+                    <select {...managerForm.register('store_id', { required: 'Store is mandatory' })} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                      <option value="">Select store location</option>
+                      {stores.map(store => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
+                    </select>
+                    <ErrorText form={managerForm} name="store_id" />
+                  </div>
+                  <button className="col-span-2 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold">Create Inventory Manager</button>
+                </form>
+              </div>
+            )}
+
+            <div className="flex-1 divide-y divide-slate-100 px-5">
+              {managerRows.pageItems.length === 0 && (
+                <div className="py-10 text-center text-sm text-slate-400">No inventory managers yet</div>
+              )}
+              <UserRows users={managerRows.pageItems} />
+            </div>
+            <Pagination page={managerRows.safePage} totalPages={managerRows.totalPages} totalItems={managers.length} pageSize={2} onPageChange={setManagerPage} />
+          </section>
+
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5">
         <Section title="Products & Store Distribution" icon={Package}>
           <form onSubmit={assignForm.handleSubmit(assignStock)} className="grid grid-cols-2 gap-3 mb-4">
             <div><select {...assignForm.register('product_id', { required: 'Product is mandatory' })} className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm">

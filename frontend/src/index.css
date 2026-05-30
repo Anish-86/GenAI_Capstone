@@ -272,3 +272,140 @@
     #07140f;
   background-size: 28px 28px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANDING PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero background */
+.landing-hero {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(52,211,153,0.12), transparent),
+    radial-gradient(ellipse 50% 40% at 80% 60%, rgba(99,102,241,0.07), transparent),
+    #ffffff;
+}
+
+/* Animated blobs */
+.landing-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: blobFloat 8s ease-in-out infinite;
+}
+.landing-blob-1 {
+  width: 500px; height: 500px;
+  background: rgba(52,211,153,0.12);
+  top: -100px; left: -100px;
+  animation-delay: 0s;
+}
+.landing-blob-2 {
+  width: 400px; height: 400px;
+  background: rgba(99,102,241,0.08);
+  top: 50px; right: -80px;
+  animation-delay: 3s;
+}
+.landing-blob-3 {
+  width: 300px; height: 300px;
+  background: rgba(251,191,36,0.07);
+  bottom: 0; left: 40%;
+  animation-delay: 5s;
+}
+@keyframes blobFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(20px, -20px) scale(1.04); }
+  66%       { transform: translate(-15px, 15px) scale(0.97); }
+}
+
+/* Gradient headline */
+.landing-gradient-text {
+  background: linear-gradient(135deg, #10b981, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Primary CTA button */
+.landing-cta-btn {
+  background: #0f172a;
+  color: #ffffff;
+  transition: background 200ms ease, transform 150ms ease, box-shadow 200ms ease;
+  box-shadow: 0 4px 14px rgba(15,23,42,0.2);
+}
+.landing-cta-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+}
+
+/* White CTA (on dark bg) */
+.landing-cta-btn-white {
+  background: #ffffff;
+  color: #0f172a;
+  transition: background 200ms ease, transform 150ms ease;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+.landing-cta-btn-white:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+/* Mockup */
+.landing-mockup {
+  background: #f8fafc;
+}
+
+/* Feature cards */
+.landing-feature-card {
+  cursor: default;
+}
+.landing-feature-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Step cards */
+.landing-step-card {
+  cursor: default;
+}
+
+/* Testimonial cards */
+.landing-testimonial-card {
+  cursor: default;
+}
+.landing-testimonial-card:hover {
+  transform: translateY(-3px);
+}
+
+/* CTA section */
+.landing-cta-section {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+}
+.landing-cta-blob-1 {
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: rgba(52,211,153,0.15);
+  filter: blur(60px);
+  top: -60px; left: -60px;
+  pointer-events: none;
+}
+.landing-cta-blob-2 {
+  position: absolute;
+  width: 250px; height: 250px;
+  border-radius: 50%;
+  background: rgba(99,102,241,0.15);
+  filter: blur(60px);
+  bottom: -40px; right: -40px;
+  pointer-events: none;
+}
+
+/* Override app-shell button border-radius for landing */
+.landing button,
+.landing a {
+  border-radius: inherit;
+}
