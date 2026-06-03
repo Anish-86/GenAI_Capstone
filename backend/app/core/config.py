@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = "gpt-4o-mini"
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+    RAG_STORAGE_DIR: str = "storage/rag"
+    RAG_EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
     class Config:
         env_file = ".env"

@@ -2,10 +2,12 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.routes import alerts, assistant, auth, complaints, tenants, products, inventory, notifications, stores, users
+from app.api.routes import alerts, assistant, auth, complaints, gemini, tenants, products, inventory, notifications, stores, users, rag
 from app.database.session import engine
 from app.models import base
 from app.core.config import settings
+from app.middleware.rate_limiter import RateLimitMiddleware
+from app.services.rag import initialize_embedding_model, startup_validation_report
 import time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(name)s  %(message)s")
@@ -22,13 +24,24 @@ app = FastAPI(
     redirect_slashes=False,
 )
 
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=settings.ALLOWED_ORIGINS,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 
 @app.middleware("http")
@@ -56,6 +69,14 @@ app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
 app.include_router(complaints.router, prefix="/complaints", tags=["Complaints"])
 app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
+app.include_router(rag.router, prefix="/rag", tags=["RAG"])
+app.include_router(gemini.router, tags=["Gemini"])
+
+
+@app.on_event("startup")
+def startup_checks():
+    initialize_embedding_model()
+    startup_validation_report()
 
 
 @app.get("/health", tags=["Health"])

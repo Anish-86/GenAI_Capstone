@@ -9,3 +9,14 @@ bcrypt==4.0.1
 pydantic[email]==2.7.1
 pydantic-settings==2.3.1
 python-multipart==0.0.9
+python-dotenv==1.0.1
+numpy==1.26.4
+httpx==0.27.0
+pytest==8.2.2
+langchain==0.2.17
+langchain-community==0.2.16
+langchain-openai==0.1.25
+faiss-cpu==1.8.0.post1
+pypdf==4.3.1
+sentence-transformers==3.0.1
+google-generativeai==0.8.3

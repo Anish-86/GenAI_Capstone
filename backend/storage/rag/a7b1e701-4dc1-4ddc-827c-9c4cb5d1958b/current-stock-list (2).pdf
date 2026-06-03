@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 1015 >>
+stream
+BT
+/F1 9 Tf
+42 790 Td
+12 TL
+(Current Stock List) Tj
+T* (Generated: 03/06/2026, 12:30:33) Tj
+T* (Total Records: 5) Tj
+T* () Tj
+T* (1. Product: Monitor Stand Adjustable) Tj
+T* (SKU: MSA-300) Tj
+T* (Store: dmart - bangalore) Tj
+T* (Store Quantity: 35) Tj
+T* (Low Stock Threshold: 10) Tj
+T* (Status: OK) Tj
+T* () Tj
+T* (2. Product: USB-C Hub 7-Port) Tj
+T* (SKU: UCH-007) Tj
+T* (Store: dmart - bangalore) Tj
+T* (Store Quantity: 120) Tj
+T* (Low Stock Threshold: 50) Tj
+T* (Status: OK) Tj
+T* () Tj
+T* (3. Product: Webcam 4K) Tj
+T* (SKU: WCM-4K1) Tj
+T* (Store: dmart - bangalore) Tj
+T* (Store Quantity: 5) Tj
+T* (Low Stock Threshold: 1) Tj
+T* (Status: OK) Tj
+T* () Tj
+T* (4. Product: Ergonomic Mouse) Tj
+T* (SKU: EMO-200) Tj
+T* (Store: dmart - bangalore) Tj
+T* (Store Quantity: 100) Tj
+T* (Low Stock Threshold: 10) Tj
+T* (Status: OK) Tj
+T* () Tj
+T* (5. Product: Cable Management Kit) Tj
+T* (SKU: CMK-010) Tj
+T* (Store: dmart - bangalore) Tj
+T* (Store Quantity: 300) Tj
+T* (Low Stock Threshold: 100) Tj
+T* (Status: OK) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000290 00000 n 
+trailer
+<< /Size 5 /Root 1 0 R >>
+startxref
+1357
+%%EOF

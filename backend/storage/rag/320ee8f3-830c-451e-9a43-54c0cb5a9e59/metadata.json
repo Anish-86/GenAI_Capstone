@@ -1,0 +1,17 @@
+{
+  "document_id": "320ee8f3-830c-451e-9a43-54c0cb5a9e59",
+  "chunk_ids": [
+    "b68fecac-3520-4900-847f-ee842b211184",
+    "7e5dc31f-d312-4de4-8c6c-945511e8b381"
+  ],
+  "chunk_indexes": [
+    0,
+    1
+  ],
+  "page_numbers": [
+    1,
+    1
+  ],
+  "backend": "sentence-transformers",
+  "updated_at": "2026-06-03T10:25:35.472625"
+}

@@ -289,6 +289,52 @@ class ChatResponse(BaseModel):
     facts: dict = {}
 
 
+class RAGUploadResponse(BaseModel):
+    document_id: UUID
+    status: str
+
+
+class RAGChatRequest(BaseModel):
+    document_id: UUID
+    question: str
+    session_id: Optional[UUID] = None
+
+
+class RAGSource(BaseModel):
+    chunk_id: UUID
+    chunk_index: int
+    score: float
+    page_number: Optional[int] = None
+    excerpt: str
+
+
+class RAGChatResponse(BaseModel):
+    answer: str
+    sources: List[RAGSource]
+    session_id: Optional[UUID] = None
+
+
+class AskRequest(BaseModel):
+    question: str
+    document_id: Optional[UUID] = None
+    session_id: Optional[UUID] = None
+
+
+class AskSource(BaseModel):
+    chunk_id: UUID
+    score: float
+    excerpt: str
+    page_number: Optional[int] = None
+    chunk_index: int
+
+
+class AskResponse(BaseModel):
+    answer: str
+    sources: List[AskSource]
+    document_id: Optional[UUID] = None
+    session_id: Optional[UUID] = None
+
+
 class ComplaintCreate(BaseModel):
     product_id: Optional[UUID] = None
     complaint_type: str
