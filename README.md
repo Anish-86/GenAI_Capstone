@@ -135,6 +135,9 @@ npm run dev
 | GET | `/users` | List users | Retailer Admin |
 | PUT | `/users/:id` | Update user | Retailer Admin |
 | DELETE | `/users/:id` | Delete user | Retailer Admin |
+| POST | `/rag/upload` | Upload and index an inventory PDF | ✓ |
+| POST | `/rag/chat` | Ask questions against an indexed PDF | ✓ |
+| POST | `/ask` | Ask grounded questions with Gemini over the latest uploaded report | ✓ |
 
 ---
 
@@ -157,6 +160,8 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 ALLOWED_ORIGINS=["http://localhost:3000"]
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-1.5-flash
 ```
 
 ---
@@ -168,4 +173,6 @@ tenants ──< users
 tenants ──< products
 products ──< inventory_transactions
 users ──< inventory_transactions (updated_by)
+documents ──< document_chunks
+documents ──< chat_sessions ──< chat_messages
 ```

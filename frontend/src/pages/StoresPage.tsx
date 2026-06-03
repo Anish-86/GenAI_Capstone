@@ -6,7 +6,7 @@ import { inventoryService, productService, storeService } from '../services/api'
 import type { InventoryTransaction, Product, Store, StoreInventory, User } from '../types'
 import { format } from 'date-fns'
 import Pagination from '../components/common/Pagination'
-import { downloadPdf, isBetweenDates, isWithinLastHours, paginate } from '../utils/tableTools'
+import { downloadCurrentStockListPdf, downloadPdf, isBetweenDates, isWithinLastHours, paginate } from '../utils/tableTools'
 import { requiredNumber } from '../utils/validation'
 
 const txnIcon: Record<string, any> = {
@@ -112,14 +112,23 @@ export default function StoresPage() {
   const historyRows = paginate(recentHistory, historyPage, 10)
 
   const exportStock = () => {
-    downloadPdf(`${selected?.name || 'store'}-current-stock`, inventory, [
-      { label: 'Product', value: row => row.product?.product_name },
-      { label: 'SKU', value: row => row.product?.sku },
-      { label: 'Store Quantity', value: row => row.quantity },
-      { label: 'Low Stock Threshold', value: row => row.low_stock_threshold },
-      { label: 'Status', value: row => row.quantity <= row.low_stock_threshold ? 'Low Stock' : 'OK' },
-      { label: 'Updated At', value: row => format(new Date(row.updated_at), 'yyyy-MM-dd HH:mm') },
-    ], `${selected?.name || 'Store'} Current Stock`)
+    downloadCurrentStockListPdf(
+      `${selected?.name || 'store'}-current-stock`,
+      inventory.map(row => ({
+        product: {
+          product_name: row.product?.product_name,
+          sku: row.product?.sku,
+        },
+        store: {
+          name: selected?.name,
+          location: selected?.location,
+        },
+        quantity: Number(row.quantity ?? 0),
+        low_stock_threshold: Number(row.low_stock_threshold ?? 0),
+        status: row.quantity <= row.low_stock_threshold ? 'Low Stock' : 'OK',
+      })),
+      `${selected?.name || 'Store'} Current Stock`,
+    )
   }
 
   const exportHistory = ({ start, end }: { start: string; end: string }) => {

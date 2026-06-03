@@ -7,7 +7,7 @@ import type { InventoryTransaction, Product, Store, StoreInventory } from '../ty
 import { format } from 'date-fns'
 import { useAuthStore } from '../store/authStore'
 import Pagination from '../components/common/Pagination'
-import { downloadPdf, isBetweenDates, isWithinLastHours, paginate } from '../utils/tableTools'
+import { downloadCurrentStockListPdf, downloadPdf, isBetweenDates, isWithinLastHours, paginate } from '../utils/tableTools'
 import { requiredNumber } from '../utils/validation'
 
 const typeConfig: Record<string, { label: string; icon: any; color: string; bg: string }> = {
@@ -109,15 +109,19 @@ export default function InventoryPage() {
 
   const exportStock = () => {
     const rows = isAdmin ? storeInventory : storeInventory
-    downloadPdf('current-stock-list', rows, [
-      { label: 'Product', value: row => row.product?.product_name },
-      { label: 'SKU', value: row => row.product?.sku },
-      { label: 'Store', value: row => row.store ? `${row.store.name} - ${row.store.location}` : currentUser?.store_id || 'My Store' },
-      { label: 'Store Quantity', value: row => row.quantity },
-      { label: 'Low Stock Threshold', value: row => row.low_stock_threshold },
-      { label: 'Status', value: row => row.quantity <= row.low_stock_threshold ? 'Low Stock' : 'OK' },
-      { label: 'Updated At', value: row => format(new Date(row.updated_at), 'yyyy-MM-dd HH:mm') },
-    ], 'Current Stock List')
+    downloadCurrentStockListPdf('current-stock-list', rows.map(row => ({
+      product: {
+        product_name: row.product?.product_name,
+        sku: row.product?.sku,
+      },
+      store: {
+        name: row.store?.name,
+        location: row.store?.location,
+      },
+      quantity: Number(row.quantity ?? 0),
+      low_stock_threshold: Number(row.low_stock_threshold ?? 0),
+      status: row.quantity <= row.low_stock_threshold ? 'Low Stock' : 'OK',
+    })), 'Current Stock List')
   }
 
   // Inventory manager: show their store's stock

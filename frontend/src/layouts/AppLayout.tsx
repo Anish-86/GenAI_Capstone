@@ -7,7 +7,7 @@ import type { Notification } from '../types'
 import ChatWidget from '../components/common/ChatWidget'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Users, Building2,
-  LogOut, X, ChevronRight, Bell, AlertTriangle, MapPin
+  LogOut, X, ChevronRight, Bell, AlertTriangle, MapPin, Sparkles
 } from 'lucide-react'
 
 const navItems = [
@@ -18,6 +18,7 @@ const navItems = [
   { to: '/app/stores', icon: MapPin, label: 'Stores', roles: ['retailer_admin'] },
   { to: '/app/alerts', icon: AlertTriangle, label: 'Low Stock', roles: ['retailer_admin', 'inventory_manager'] },
   { to: '/app/users', icon: Users, label: 'Team', roles: ['retailer_admin'] },
+  { to: '/app/rag', icon: Sparkles, label: 'Assistant', roles: ['retailer_admin', 'inventory_manager'] },
 ]
 
 export default function AppLayout() {

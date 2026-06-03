@@ -14,10 +14,19 @@ import TenantsPage from './pages/TenantsPage'
 import AlertsPage from './pages/AlertsPage'
 import TenantDetailsPage from './pages/TenantDetailsPage'
 import StoresPage from './pages/StoresPage'
+import RagChat from './pages/RagChat'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { accessToken } = useAuthStore()
   return accessToken ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+function AssistantRoute() {
+  const { user } = useAuthStore()
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/app/dashboard" replace />
+  }
+  return <RagChat />
 }
 
 export default function App() {
@@ -42,6 +51,7 @@ export default function App() {
           <Route path="stores" element={<StoresPage />} />
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="tenants/:id" element={<TenantDetailsPage />} />
+          <Route path="rag" element={<AssistantRoute />} />
         </Route>
 
         {/* Legacy redirects — old paths still work */}
@@ -52,6 +62,7 @@ export default function App() {
         <Route path="/users" element={<Navigate to="/app/users" replace />} />
         <Route path="/stores" element={<Navigate to="/app/stores" replace />} />
         <Route path="/tenants" element={<Navigate to="/app/tenants" replace />} />
+        <Route path="/rag" element={<Navigate to="/app/rag" replace />} />
       </Routes>
     </BrowserRouter>
   )

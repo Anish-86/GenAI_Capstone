@@ -110,6 +110,24 @@ export const assistantService = {
   chat: (message: string) => api.post('/assistant/chat', { message }),
 }
 
+// ─── RAG / Gemini ───────────────────────────────────────────────────────────
+export const ragService = {
+  upload: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/rag/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  ask: (data: { question: string; document_id?: string | null; session_id?: string | null }) => {
+    const payload: Record<string, any> = { question: data.question }
+    if (data.document_id) payload.document_id = data.document_id
+    if (data.session_id) payload.session_id = data.session_id
+    return api.post('/ask', payload)
+  },
+  documents: () => api.get('/documents'),
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const userService = {
   list: () => api.get('/users'),
